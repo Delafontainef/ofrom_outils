@@ -8,12 +8,12 @@ L'ancienne fonction 'load_meta()' est toujours présente.
 
 """
 
-from ofrom_outils.common import META, DFLT, setParent
-from ofrom_outils.common_types import Self, Iterator, Path, Transcription
-from ofrom_outils.meta.meta_models import AbsMeta, MetaDict
+from ofrom_outils.common import META, DFLT, set_parent
+from ofrom_outils.common_types import Any, Self, Iterator, Path, Transcription
+from ofrom_outils.meta.meta_models import AbsMeta, MetaDict, Tr, Spk
 from ofrom_outils.meta.meta_functions import (
     set_pub_meta, save_as_csv,
-    iter_shn, load_meta, get_meta, set_meta
+    load_meta, get_meta, set_meta
 )
 import openpyxl as xl
 import os
@@ -25,7 +25,7 @@ class Meta(AbsMeta):
     
     def __init__(self, f: Path = ""):
         self.f: Path = ""
-        self.wb: Workbook = None
+        self.wb: Workbook|None = None
         self.d: MetaDict = MetaDict()
         self.set_path(f) # initialise f/d
     
@@ -81,9 +81,11 @@ class Meta(AbsMeta):
             if k in tr.d:                               # transcription
                 return "trans"
             spkcode = tr.spk[0]
-            if k in self.d.spk[(trcode, spkcode)].d:    # speaker
-                return ""
-            raise KeyError(f"{k} not in MetaDict.")     # not found
+            if k not in self.d.spk[(trcode, spkcode)].d:
+                raise KeyError(f"{k} not in MetaDict.")     # not found
+            return ""
+        return ""
+
     def get(
             self, trcode: str, spkcode: str = 'trans', k: str = ""
         ) -> str | list[str] | dict[str, str]:
@@ -97,8 +99,14 @@ class Meta(AbsMeta):
         spkcode = self.ch_key(k) if (k and not spkcode) else spkcode
         return get_meta(self.d, trcode, spkcode, k)
     def set(
-            self, trcode: str, spkcode: str, k: str, v: any,
-            save: bool = False, close: bool = False, f: Path = ""
+            self,
+            trcode: str,
+            spkcode: str,
+            k: str,
+            v: Any,
+            save: bool = False,
+            close: bool = False,
+            f: Path = ""
         ) -> None:
         """
         Modifie le WorkBook à l'aide de 'self.d'.
@@ -116,8 +124,14 @@ class Meta(AbsMeta):
         if close: 
             self.close()
     def ch_set(
-            self, trcode: str, spkcode: str, k: str, v: any, 
-            save: bool = False, close: bool = False, f: Path = "", 
+            self,
+            trcode: str,
+            spkcode: str,
+            k: str,
+            v: Any,
+            save: bool = False,
+            close: bool = False,
+            f: Path = "",
             dflt: str = ""
         ) -> bool:
         """
@@ -142,17 +156,19 @@ class Meta(AbsMeta):
             self.close()
         return ch
     
-    def tr_cols() -> list[str]:
+    def tr_cols(self) -> list[str]:
         """Renvoie les noms de métadonnées des transcriptions."""
         return self.d.tr_cols.copy()
-    def spk_cols() -> list[str]:
+    def spk_cols(self) -> list[str]:
         """Renvoie les noms de métadonnées des locuteurs."""
         return self.d.spk_cols.copy()
-    def iter_tr() -> Iterator[tuple[str, dict]]:
+    def iter_tr(self) -> Iterator[tuple[str, Tr]]:
         """Itère sur les transcriptions."""
         for trcode, mtr in self.d.tr.items():
-            yield trocde, mtr.copy()
-    def iter_spk(trcode: str|list[str]: "") -> Iterator[tuple[str, str, dict]]:
+            yield trcode, mtr.copy()
+    def iter_spk(
+            self, trcode: str|list[str] = ""
+        ) -> Iterator[tuple[str, str, Spk|dict[str, str]]]:
         """Itère sur les locuteurs."""
         if not trcode:
             for tpl, mspk in self.d.spk.items():
@@ -165,7 +181,7 @@ class Meta(AbsMeta):
             for spk in self.d.tr[trc].spk:
                 yield trc, spk, self.d.spk[(trc, spk)].d.copy()
     
-    def add_to_trans(tr: Transcription) -> Transcription:
+    def add_to_trans(self, tr: Transcription) -> Transcription:
         """
         Ajoute les métadonnées à la Transcription.
         On est forcés de créer les locuteurs ici donc parentage également.
@@ -175,27 +191,26 @@ class Meta(AbsMeta):
             return tr
         for k, v in stf.d.items():              # métadonnées de transcription
             tr.setMeta(k, v, 'omni')
-        setParent(tr)                           # parentage
+        set_parent(tr)                           # parentage
         for ptier in tr.getTop():
             ptier.setMeta("speaker", ptier.name)
             for ctier in ptier.children():
                 ctier.setMeta("speaker", ptier.name)
-            d = self.d.spk.get((tr.name, tier.name), {})
-            tr.addSpk(tier.name, {k: v for k, v in d.items()}) # meta locuteurs
+            d = self.d.spk.get((tr.name, ptier.name), {})
+            tr.addSpk(ptier.name, {k: v for k, v in d.items()}) # meta locuteurs
         return tr
     
-    def set_pub(self, corp: str, core: str = "",
+    def set_pub(self, corp: str,
                 save: bool = False, close: bool = False
         ) -> Workbook:
         """
         Génère et sauvegarde directement un metadata public
         pour un corpus donné.
         corp :      le nom du sous-corpus
-        core :      l'emplacement du corpus
         """
         if not self.wb:
             self.open()
-        mwb, c_path = set_pub_meta(self.wb, corp, core)
+        mwb, c_path = set_pub_meta(self.wb, corp)
         if save:
             mwb.save(os.path.join(c_path+".xlsx"))
             save_as_csv(mwb.active, os.path.join(c_path+".csv"))

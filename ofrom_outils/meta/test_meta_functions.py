@@ -4,12 +4,12 @@ from ofrom_outils.meta.meta_functions import (
     _set_meta_md, _set_meta_wb, save_as_csv,
     get_pub_files, set_pub_meta
 )
-from ofrom_outils.meta.meta_validation import VCell
+# from ofrom_outils.meta.meta_validation import VCell
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 import os, tempfile, copy
 from openpyxl.cell import Cell
-from openpyxl.workbook import Workbook
+# from openpyxl.workbook import Workbook
 import openpyxl as xl
 import warnings
 warnings.simplefilter("ignore")

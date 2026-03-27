@@ -5,7 +5,7 @@ from ofrom_outils.meta.meta_models import (
     MetaDict, Tr, Spk
 )
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch
 import openpyxl as xl
 from openpyxl.workbook import Workbook
 import os, tempfile
@@ -49,10 +49,10 @@ class TestMeta(unittest.TestCase):
             os.remove(tmp_name)
     def test_close(self):
         self.meta.close()
-        self.assertTrue(self.meta.wb == None)
+        self.assertTrue(self.meta.wb is None)
     def test_clear(self):
-        self.meta.wb = "invalid structure"
-        self.meta.d = {"filler2": {}}
+        self.meta.wb = xl.Workbook()
+        self.meta.d = MetaDict(["hello", "what"], [], {}, {})
         self.meta.clear()
         self.assertEqual((self.meta.wb, self.meta.d), (None, MetaDict()))
     def test_save(self):
@@ -60,7 +60,7 @@ class TestMeta(unittest.TestCase):
         tmp_name = set_tmp()
         try:
             self.meta.save(tmp_name)
-            wb = xl.load_workbook(tmp_name)
+            xl.load_workbook(tmp_name)
             self.assertTrue(self.meta.wb.sheetnames, self.wb.sheetnames)
         finally:
             os.remove(tmp_name)
@@ -114,7 +114,7 @@ class TestMetaContinued(unittest.TestCase):
         tmp = set_tmp(suffix="")
         try:
             mpub.return_value = (wb, tmp)
-            md = self.meta.set_pub("OFROM-test", "", save=True)
+            md = self.meta.set_pub("OFROM-test", save=True)
             xl.load_workbook(tmp+".xlsx")
             self.assertTrue(isinstance(md, Workbook))
         finally:

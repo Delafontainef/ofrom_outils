@@ -11,6 +11,7 @@ venv/
 # Au cas où quelqu'un utilise Visual Studio
 .vscode/
 *.vs
+*.idea
 
 # En développement
 ofrom_outils/audio/

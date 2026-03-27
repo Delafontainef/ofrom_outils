@@ -2,14 +2,13 @@
 Modèles pour les métadonnées d'OFROM+.
 """
 
-from ofrom_outils.common_types import (Path, Callable)
+from ofrom_outils.common_types import (Any, Path, Callable)
 from typing import Protocol, runtime_checkable
-from types import MappingProxyType
 from dataclasses import dataclass, field
 from openpyxl.cell.cell import Cell
 from openpyxl.workbook.workbook import Workbook
 
-type spk_key = Tuple[str, str]
+type spk_key = tuple[str, str]
 
 @dataclass
 class Spk:
@@ -19,12 +18,12 @@ class Spk:
     - sh    (list) l'emplacement dans le fichier
     """
     d: dict[str, str] = field(default_factory=dict)
-    sh: tuple[str|int] = field(default_factory=lambda: ("", 0))
+    sh: tuple[str, int] = field(default_factory=lambda: ("", 0))
     
     def copy(self) -> "Spk":
         return Spk(
-            d: self.d.copy()
-            sh: self.sh.copy()
+            d = self.d.copy(),
+            sh = self.sh
         )
     
 @dataclass
@@ -39,8 +38,8 @@ class Tr:
     
     def copy(self) -> "Tr":
         return Tr(
-            d: self.d.copy()
-            spk: self.spk.copy()
+            d = self.d.copy(),
+            spk = self.spk.copy()
         )
     
 @dataclass
@@ -100,7 +99,7 @@ class AbsMeta(Protocol):
     
     f: Path
     wb: Workbook
-    d: Metadict
+    d: MetaDict
     
     def open(self, f: Path) -> Workbook:
         ...
@@ -120,14 +119,16 @@ class AbsMeta(Protocol):
     def get(self, trcode: str, spkcode: str, k: str) -> str | dict[str, str]:
         ...
     def set(
-            self, trcode: str, spkcode: str, k: str, v: any,
+            self, trcode: str, spkcode: str, k: str, v: Any,
             save: bool, close: bool, f: Path
         ) -> None:
         ...
     def ch_set(
-            self, trcode: str, spkcode: str, k: str, v: any, 
+            self, trcode: str, spkcode: str, k: str, v: Any,
             save: bool, close: bool, f: Path, dflt: str
-        ) -> None:
+        ) -> bool:
         ...
-    def set_pub(corp: str, core: str, save: bool, close: bool) -> Workbook:
+    def set_pub(
+            self, corp: str, save: bool, close: bool
+        ) -> Workbook:
         ...

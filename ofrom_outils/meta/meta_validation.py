@@ -2,7 +2,7 @@ from ofrom_outils.meta.meta_models import ModelVVal, ModelVCell
 from ofrom_outils.common_types import Any, Callable
 from ofrom_outils.common import DFLT
 from openpyxl.cell.cell import Cell
-import os, re, datetime
+import re, datetime
 
 """Constantes globales
 clé         type        description
@@ -32,8 +32,9 @@ def str_to_regex(val: str, r: re.Pattern = None) -> str:
     """Retire tout symbole non-autorisé via une expression régulière."""
     r = re.compile(CELL_R) if not r else r
     return "".join(r.findall(val)).strip()
-def regex_to_list(val: str = "", l: list[str] = []) -> str:
+def regex_to_list(val: str = "", l: list[str] = None) -> str:
     """Vérifie si la valeur est dans la liste."""
+    l = [] if l is None else l
     return "" if val not in l else val
 def regex_to_date(val: str = "", strf: str = CELL_D) -> str:
     """
@@ -84,40 +85,40 @@ def date_val(val, strf: str, dflt: str = DFLT):
 D_VAL       dict        fonction par nom de métadonnée
 D_CVAL      dict        (legacy) fonction par type de donnée
 """
-D_VAL: dict[str, list[Callable, str|list[str]]] = {
-	'statut': [
+D_VAL: dict[str, tuple[Callable, str|list[str]]] = {
+	'statut': (
         list_val, ["Prêt", "EnCours", "Res1", "Res2", "Res3", "Res4"]
-    ],
-	'sous-corpus': [str_val, "[\\w\\-, ]+"],
-	'date_enregistrement': [date_val, CELL_D],
-	'reviseur_1_date': [date_val, CELL_D],
-	'reviseur_2_date': [date_val, CELL_D],
-	'nb_mots': [str_val, r"^[+-]?\d+$"],
-	'duree': [str_val, r"^[+-]?(\d+\.\d+)$"],
-	'qualite': [list_val, ["bonne", "moyenne", "mauvaise"]],
-	'sexe': [list_val, ["F", "H", "A"]],
-	'age': [str_val, r"^[+-]?\d+$"],
-	'annee_naissance': [date_val, CELL_Y],
-	'habite_depuis': [date_val, CELL_Y],
-	'langage': [list_val, ["Français L1", "Français L2"]],
-	'niveau_socioeducatif': [
+    ),
+	'sous-corpus': (str_val, "[\\w\\-, ]+"),
+	'date_enregistrement': (date_val, CELL_D),
+	'reviseur_1_date': (date_val, CELL_D),
+	'reviseur_2_date': (date_val, CELL_D),
+	'nb_mots': (str_val, r"^[+-]?\d+$"),
+	'duree': (str_val, r"^[+-]?(\d+\.\d+)$"),
+	'qualite': (list_val, ["bonne", "moyenne", "mauvaise"]),
+	'sexe': (list_val, ["F", "H", "A"]),
+	'age': (str_val, r"^[+-]?\d+$"),
+	'annee_naissance': (date_val, CELL_Y),
+	'habite_depuis': (date_val, CELL_Y),
+	'langage': (list_val, ["Français L1", "Français L2"]),
+	'niveau_socioeducatif': (
 		list_val, [
 			"Scolarité obligatoire", "Maturité, apprentissage",
 			"Formation supérieure"
 		]
-	],
-	'role': [list_val, ["Témoin", "Enquêteur", "Enquêteur-interactant"]],
-	'longitude': [str_val, r"^[+-]?(\d+\.\d+)$"],
-	'latitude': [str_val, r"^[+-]?(\d+\.\d+)$"],
-	'extr_deb': [str_val, r"^[+-]?(\d+\.\d+)$"],
-	'extr_fin': [str_val, r"^[+-]?(\d+\.\d+)$"]
+    ),
+	'role': (list_val, ["Témoin", "Enquêteur", "Enquêteur-interactant"]),
+	'longitude': (str_val, r"^[+-]?(\d+\.\d+)$"),
+	'latitude': (str_val, r"^[+-]?(\d+\.\d+)$"),
+	'extr_deb': (str_val, r"^[+-]?(\d+\.\d+)$"),
+	'extr_fin': (str_val, r"^[+-]?(\d+\.\d+)$")
 }
-D_CVAL: dict[str, list[Callable, str|list[str]]] = {
-    'str': [str_val, CELL_R],
-    'list': [list_val, []],
-    'date': [date_val, CELL_D],
-    'int': [str_val, r"^[+-]?\d+$"],
-    'float': [str_val, r"^[+-]?(\d+\.\d+)$"]
+D_CVAL: dict[str, tuple[Callable, str|list[str]]] = {
+    'str': (str_val, CELL_R),
+    'list': (list_val, []),
+    'date': (date_val, CELL_D),
+    'int': (str_val, r"^[+-]?\d+$"),
+    'float': (str_val, r"^[+-]?(\d+\.\d+)$")
 }
 
 class VVal(ModelVVal):
@@ -166,4 +167,4 @@ class VCell(ModelVCell):
         try:
             self.cell.value = self.vfun(val, *self.args)
         except Exception as e:
-            raise Exception(f"{_vmsg(self.val)}: {e}") from e
+            raise Exception(f"{_vmsg(self.cell.value)}: {e}") from e

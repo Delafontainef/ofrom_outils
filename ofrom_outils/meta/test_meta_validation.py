@@ -1,4 +1,3 @@
-from ofrom_outils.meta.meta_models import Val
 from ofrom_outils.meta.meta_validation import (
     val_to_str, str_to_regex, regex_to_list, regex_to_date,
     str_val, list_val, date_val, VVal, VCell
@@ -66,7 +65,6 @@ class TestStrVal(unittest.TestCase):
     def test_get(self, mock_str, mock_re):
         mock_str.return_value = "legit"
         mock_re.return_value = "legit"
-        cv = StrVal()
         self.assertEqual(str_val(None), "legit")
     def test_get_empty(self, mock_str, mock_re):
         mock_str.return_value = ""
@@ -91,7 +89,7 @@ class TestListVal(unittest.TestCase):
         mock_re.return_value = "None"
         mock_list.return_value = "None"
         CELL.value = "false"
-        self.assertEqual(cv.get(CELL, self.l, "None"), 'None')
+        self.assertEqual(list_val(CELL, self.l, "None"), 'None')
 
 @patch("ofrom_outils.meta.meta_validation.regex_to_date")
 @patch("ofrom_outils.meta.meta_validation.str_to_regex")
@@ -110,8 +108,8 @@ class TestDateVal(unittest.TestCase):
         mock_str.return_value = "None"
         mock_re.return_value = "None"
         mock_date.return_value = ""
-        cv, CELL.value = DateVal(self.strf), 1888
-        self.assertEqual(date_val(CELL, dflt="NA"), 'NA')
+        CELL.value = 1888
+        self.assertEqual(date_val(CELL, strf="YYYY-MM-DD", dflt="NA"), 'NA')
 
 @patch("ofrom_outils.meta.meta_validation.StrVal")
 class TestVVal(unittest.TestCase):

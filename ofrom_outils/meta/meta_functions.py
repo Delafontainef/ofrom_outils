@@ -1,14 +1,14 @@
-from ofrom_outils.common_types import Path
+from ofrom_outils.common_types import Any, Iterator, Path, Row, Worksheet
 from ofrom_outils.meta.meta_models import (MetaDict, Tr, Spk)
 from ofrom_outils.meta.meta_validation import VVal, VCell
 from ofrom_outils.common import DFLT, iter_file
 from ofrom_outils.pr.private_paths import sub_corpus
 import openpyxl as xl
-import os, re, csv, datetime
+import csv, datetime
 
 from openpyxl.workbook.workbook import Workbook
-type IterMeta = Iterator[Tuple[str, object, dict, int, object]]
-type SpktoSh = list[Tuple[str, int]]
+type IterMeta = Iterator[tuple[str, object, dict, int, Row]]
+type SpktoSh = list[tuple[str|int]]
 
 """Constantes globales
 clé         type        description
@@ -59,7 +59,7 @@ def iter_shn(wb: Workbook) -> IterMeta:
         for i, row in enumerate(sh.iter_rows(min_row = 2)):
             yield shn, sh, d_c, i+2, row
 def _mrow(
-        md: MetaDict, shn: str, i: int, row: object, d_c: dict[str, int]
+        md: MetaDict, shn: str, i: int, row: Row, d_c: dict[str, int]
     ) -> MetaDict:
     """Récupère les métadonnées pour une ligne du 'metadata'."""
     trcode = VCell(row[d_c[TRCODE]], TRCODE).value
@@ -114,14 +114,14 @@ def get_meta(
         raise KeyError(f"{kspk}: '{k}' pas dans 'MetaDict'.")
     return dat[k] if k else dat.copy()  # donnée unique ou paquet
 def _set_meta_md(
-        md: MetaDict, trcode: str, spkcode: str, k: str, v: any
+        md: MetaDict, trcode: str, spkcode: str, k: str, v: Any
     ) -> SpktoSh:
     """
     Modifie dictionnaire de métadonnées.
     Retourne les lignes à éditer dans le WorkBook.
     """
     if trcode not in md.tr:             # rien à changer
-        return md
+        return []
     elif spkcode in md.tr[trcode].spk:  # métadonnée de locuteur
         l_spk = [md.spk[(trcode, spkcode)].sh]
         md.spk[(trcode, spkcode)].d[k] = VVal(v).value
@@ -132,10 +132,10 @@ def _set_meta_md(
     return l_spk
 def _set_meta_wb(
         wb: Workbook, l_spk: SpktoSh,
-        trcode: str, spkcode: str, k: str, v: any
+        trcode: str, spkcode: str, k: str, v: Any
     ) -> None:
     """Modifie le WorkBook (sans sauvegarder)."""
-    oshn, d_c = "", {}
+    sh, oshn, d_c = None, "", {}
     for shn, i in l_spk:
         if shn not in wb.sheetnames:    # perdu la trace des métadonnées...
             raise KeyError(f"{(trcode, spkcode)}: '{shn}'"
@@ -152,13 +152,13 @@ def _set_meta_wb(
         VCell(sh.cell(int(i), d_c[k])).value = v
 def set_meta(
         wb: Workbook, md: MetaDict, 
-        trcode: str, spkcode: str, k: str, v: any
+        trcode: str, spkcode: str, k: str, v: Any
     ) -> MetaDict:
     """Modifie dictionnaire et WorkBook (sans sauvegarder)."""
     l_spk = _set_meta_md(md, trcode, spkcode, k, v) # modifie 'MetaEdit'
     _set_meta_wb(wb, l_spk, trcode, spkcode, k, v)  # modifie WorkBook
     return md
-def save_as_csv(sh: object, path: Path) -> None:
+def save_as_csv(sh: Worksheet, path: Path) -> None:
     """Sauvegarde le metadata comme '.csv'."""
     with open(path, "w", newline="", encoding="utf-8") as wf:
         w = csv.writer(wf)
@@ -167,13 +167,13 @@ def save_as_csv(sh: object, path: Path) -> None:
 
     # Métadonnées publiques #
     #-----------------------#
-def get_pub_files(c_path: Path) -> dict[str: Path]:
+def get_pub_files(c_path: Path) -> dict[str, Path]:
     """Génère la liste des fichiers publics comme dictionnaire."""
     d_files = {}
     for fi, ext, file, path in iter_file(c_path):
         d_files[fi] = path
     return d_files
-def set_pub_meta(wb: Workbook, corp: str, core: str) -> tuple[Workbook, Path]:
+def set_pub_meta(wb: Workbook, corp: str) -> tuple[Workbook, Path]:
     """
     Génère un metadata public à partir d'une feuille et 
     d'un dictionnaire de fichiers.
@@ -190,11 +190,11 @@ def set_pub_meta(wb: Workbook, corp: str, core: str) -> tuple[Workbook, Path]:
     nsh.title = sh.title; nsh.append(META_PUB)
     for row in sh.iter_rows(min_row=2):
         fi = row[d_c[TRCODE]].value
-        if fi not in d_files:               # only metadata of public files
+        if fi not in d_files:       # uniquement métadonnées publiques
             continue
         nrow = [row[d_c[col]].value if col in d_c else "" 
-                for col in META_PUB] # all fields should be there anyway
-            # last minute date formatting because reasons...
+                for col in META_PUB] # tous les champs devraient y être
+            # formatage des dates de dernière minute...
         for i, v in enumerate(nrow):
             try:
                 parsed = datetime.datetime.strptime(v, "%Y-%m-%d")
