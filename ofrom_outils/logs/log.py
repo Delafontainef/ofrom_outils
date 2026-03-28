@@ -45,7 +45,8 @@ class Log:
             import msvcrt
             self.msvcrt = msvcrt
         else:
-            import tty, termios
+            import tty
+            import termios
             self.tty, self.termios = tty, termios
 
     def _readw(self) -> str:

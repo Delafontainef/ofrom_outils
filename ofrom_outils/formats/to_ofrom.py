@@ -71,7 +71,7 @@ class Stats:
             for sa, ea in l_over:
                 aodur = aodur + (ea - sa)
             ach = True if (l_over and l_over[-1][1] == aseg.end) else False
-            if (not aseg.content in l_syms) and ("%" not in aseg.content):
+            if (aseg.content not in l_syms) and ("%" not in aseg.content):
                 self.d_spk[atier.name]['TimeArticulation_Overlap'] += aodur
                 self.d_spk[atier.name]['TimeArticulation_Alone'] += (dur - aodur)
             return ach, aodur
@@ -267,7 +267,7 @@ def _write_segs(l_tiers, stats):
         lca = 0
         for min_seg, i_mina, l_args, lem_seg in iter_args(
                 tiera, sega, i_sega, i_mina, d_csegsa):
-            if not min_seg.content in l_syms:
+            if min_seg.content not in l_syms:
                 lca += 1
             lem = html.escape(lem_seg.content)
             if lem.count("|") > 3:
@@ -382,7 +382,7 @@ def _write_metadata(trans, enc, div="speakers"):
             revised_by, revision_date, ch_date = "", "", -1
             for k, v in trans.metadata['omni'].items():
                 v = v[0] if v else ""
-                if not "reviseur" in k:
+                if "reviseur" not in k:
                     continue
                 l_v = v.split(";") if ";" in v else [v]
                 if "date" in k:
@@ -525,7 +525,7 @@ def _write_metadata(trans, enc, div="speakers"):
             for spk2a in d_spk:  # Filling 'd_res' with 'NR'
                 if spk2a == spka:
                     continue
-                if not spk2a in d_resa:
+                if spk2a not in d_resa:
                     d_resa[spk2a] = {}
                 for k in d_rela:
                     d_resa[spk2a][k] = 'NR'

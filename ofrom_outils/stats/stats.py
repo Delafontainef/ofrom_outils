@@ -92,7 +92,7 @@ class Stats(AbsStats):
         """Met à jour les statistiques du fichier de métadonnées."""
 
         fset: Callable[[str, str, str, Any], None] = self.md.ch_set \
-            if safe == True else self.md.set
+            if safe else self.md.set
         age, wd, dur = "age", "nb_mots", "duree"
         date_enr, date_birth = "date_enregistrement", "date_naissance"
         self._set_md(path)

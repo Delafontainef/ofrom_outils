@@ -44,10 +44,10 @@ def str_to_regex(val: str, r: re.Pattern = None) -> str:
     return "".join(r.findall(val)).strip()
 
 
-def regex_to_list(val: str = "", l: list[str] = None) -> str:
+def regex_to_list(val: str = "", lst: list[str] = None) -> str:
     """Vérifie si la valeur est dans la liste."""
-    l = [] if l is None else l
-    return "" if val not in l else val
+    lst = [] if lst is None else lst
+    return "" if val not in lst else val
 
 
 def regex_to_date(val: str = "", strf: str = CELL_D) -> str:
@@ -84,11 +84,11 @@ def str_val(val, r: str = CELL_R, dflt: str = DFLT):
     return v if v else dflt
 
 
-def list_val(val, l: list[str], dflt: str = DFLT):
+def list_val(val, lst: list[str], dflt: str = DFLT):
     """
     Gère les valeurs avec un contenu contraint (liste).
     """
-    v = regex_to_list(str_to_regex(val_to_str(val)), l)
+    v = regex_to_list(str_to_regex(val_to_str(val)), lst)
     return v if v else dflt
 
 

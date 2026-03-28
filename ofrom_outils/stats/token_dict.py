@@ -119,7 +119,7 @@ class TokenDict(AbsTokenDict):
             c = D_TR[c] if c in D_TR else c
             c = "autre" if not c in self.d else c  # get 'c' key
             l_anno = self._get_anno(tok, [ps_tier, le_tier, ph_tier])
-            if not tok.content in self.d[c]:  # new word
+            if tok.content not in self.d[c]:  # new word
                 self.d[c][tok.content] = {
                     "pos": [l_anno[0]],
                     "lemma": [l_anno[1]],
@@ -129,11 +129,11 @@ class TokenDict(AbsTokenDict):
                 }
             else:  # append
                 self.d[c][tok.content]['nb'] += 1
-                if not l_anno[0] in self.d[c][tok.content]['pos']:
+                if l_anno[0] not in self.d[c][tok.content]['pos']:
                     self.d[c][tok.content]["pos"].append(l_anno[0])
-                if not l_anno[1] in self.d[c][tok.content]['lemma']:
+                if l_anno[1] not in self.d[c][tok.content]['lemma']:
                     self.d[c][tok.content]["lemma"].append(l_anno[1])
-                if not trans.name in self.d[c][tok.content]['files']:
+                if trans.name not in self.d[c][tok.content]['files']:
                     self.d[c][tok.content]['files'].append(fi)
         return self.d
 

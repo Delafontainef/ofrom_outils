@@ -185,11 +185,11 @@ def _write_u(ttab, a, n, seg, s, e):
     return a + 1, n
 
 
-def _write_w(ttab, i, n, typ, s, _e, w, p, l):
+def _write_w(ttab, i, n, typ, s, _e, w, p, lem):
     """Writes a word."""
     n = n + f"{ttab}\t<{typ} xml:id=\"i{i}\" synch=\"{s}\" "
     if typ == "w":
-        n = n + f"pos=\"{p}\" lemma=\"{l}\" "
+        n = n + f"pos=\"{p}\" lemma=\"{lem}\" "
     n = n + f">{w}</{typ}>\n"
     return i + 1, n
 
@@ -206,7 +206,7 @@ def _write_body(f, ntrans, d_timetable, ida):
     # set structure
     l_par = []
     for tier in ntrans:
-        if not "[" in tier.name:  # top (transcription) OFROM tier
+        if "[" not in tier.name:  # top (transcription) OFROM tier
             l_par.append(tier)
             continue
         n, typ = tier.name.split("[", 1)
@@ -236,11 +236,11 @@ def _write_body(f, ntrans, d_timetable, ida):
         except KeyError:  # assume "%"+NOM:pro case
             continue
         for i in range(len(l_ws)):  # words (mwu)
-            w, p, l = l_ws[i], l_ps[i], l_ls[i]
+            w, p, lem = l_ws[i], l_ps[i], l_ls[i]
             s, e = d_timetable[w.start], d_timetable[w.end]
-            w, p, l = w.content, p.content, l.content
+            w, p, lem = w.content, p.content, lem.content
             typ = "w" if w not in l_syms else "pc"
-            iw, txt = _write_w(ttab, iw, txt, typ, s, e, w, p, l)
+            iw, txt = _write_w(ttab, iw, txt, typ, s, e, w, p, lem)
         f.write(txt)
         txt = ""
     if iu > 0:

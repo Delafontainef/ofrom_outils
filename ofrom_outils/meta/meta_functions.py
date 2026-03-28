@@ -72,13 +72,13 @@ def _mrow(
     spkcode = VCell(row[d_c[SPKCODE]], SPKCODE).value
     m_tr = [mtr for mtr in META_TR if mtr in d_c]
     m_spk = [mspk for mspk in META_SPK if mspk in d_c]
-    if not trcode in md.tr:
+    if trcode not in md.tr:
         md.tr[trcode] = Tr()
         for mtr in m_tr:
             md.tr[trcode].d[mtr] = VCell(row[d_c[mtr]], mtr).value
         md.tr_cols = m_tr
     kspk = (trcode, spkcode)
-    if not spkcode in md.tr[trcode].spk:  # new speaker
+    if spkcode not in md.tr[trcode].spk:  # new speaker
         md.tr[trcode].spk.append(spkcode)
         md.spk[kspk] = Spk()
         md.spk_cols = m_spk
@@ -118,7 +118,7 @@ def get_meta(
     if not spkcode:  # liste des locuteurs
         return md.tr[trcode].spk.copy()
     kspk = (trcode, spkcode)
-    dat = md.tr[trcode].d if not spkcode in md.tr[trcode].spk else \
+    dat = md.tr[trcode].d if spkcode not in md.tr[trcode].spk else \
         md.spk[kspk].d
     if k and k not in dat:  # nom de métadonnée invalide
         raise KeyError(f"{kspk}: '{k}' pas dans 'MetaDict'.")
