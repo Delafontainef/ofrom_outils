@@ -16,9 +16,7 @@ venv/
 # En développement
 ofrom_outils/audio/
 ofrom_outils/export/
-ofrom_outils/logs/
 ofrom_outils/pos/
-ofrom_outils/stats/
 
 # Parties trop lourdes ou privées
 ofrom_outils/pr/

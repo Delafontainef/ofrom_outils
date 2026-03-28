@@ -2,13 +2,16 @@
 Modèles pour les métadonnées d'OFROM+.
 """
 
-from ofrom_outils.common_types import (Any, Path, Callable)
-from typing import Protocol, runtime_checkable
 from dataclasses import dataclass, field
+from typing import Protocol, runtime_checkable
+
 from openpyxl.cell.cell import Cell
 from openpyxl.workbook.workbook import Workbook
 
+from ofrom_outils.common_types import (Any, Path, Callable)
+
 type spk_key = tuple[str, str]
+
 
 @dataclass
 class Spk:
@@ -19,13 +22,14 @@ class Spk:
     """
     d: dict[str, str] = field(default_factory=dict)
     sh: tuple[str, int] = field(default_factory=lambda: ("", 0))
-    
+
     def copy(self) -> "Spk":
         return Spk(
-            d = self.d.copy(),
-            sh = self.sh
+            d=self.d.copy(),
+            sh=self.sh
         )
-    
+
+
 @dataclass
 class Tr:
     """
@@ -35,13 +39,14 @@ class Tr:
     """
     d: dict[str, str] = field(default_factory=dict)
     spk: list[str] = field(default_factory=list)
-    
+
     def copy(self) -> "Tr":
         return Tr(
-            d = self.d.copy(),
-            spk = self.spk.copy()
+            d=self.d.copy(),
+            spk=self.spk.copy()
         )
-    
+
+
 @dataclass
 class MetaDict:
     """
@@ -58,10 +63,11 @@ class MetaDict:
     tr: dict[str, Tr] = field(default_factory=dict)
     spk: dict[spk_key, Spk] = field(default_factory=dict)
 
-@runtime_checkable   
+
+@runtime_checkable
 class ModelVVal(Protocol):
     """Wrapper autour d'une valeur pour lui intégrer un validateur."""
-    
+
     val: Any
     vfun: Callable
     args: list
@@ -73,11 +79,12 @@ class ModelVVal(Protocol):
     @value.setter
     def value(self, val: Any) -> None:
         ...
-    
+
+
 @runtime_checkable
 class ModelVCell(Protocol):
     """Wrapper autour d'une cellule pour lui intégrer un validateur."""
-    
+
     cell: Cell
     vfun: Callable
     args: list
@@ -90,45 +97,55 @@ class ModelVCell(Protocol):
     def value(self, val: Any) -> None:
         ...
 
+
 @runtime_checkable
 class AbsMeta(Protocol):
     """
     Gère le fichier de métadonnées et les métadonnées en mémoire.
     Ne gère pas le dépôt / la récupération dans les transcriptions. 
     """
-    
+
     f: Path
     wb: Workbook
     d: MetaDict
-    
+
     def open(self, f: Path) -> Workbook:
         ...
+
     def close(self) -> None:
         ...
+
     def clear(self) -> None:
         ...
+
     def save(self, f: Path, close: bool) -> None:
         ...
-    
+
     def set_path(self, f: Path) -> None:
         ...
+
     def load(self, f: Path, keep_open: bool) -> None:
         ...
+
     def ch_key(self, k: str) -> str:
         ...
+
     def get(self, trcode: str, spkcode: str, k: str) -> str | dict[str, str]:
         ...
+
     def set(
             self, trcode: str, spkcode: str, k: str, v: Any,
             save: bool, close: bool, f: Path
-        ) -> None:
+    ) -> None:
         ...
+
     def ch_set(
             self, trcode: str, spkcode: str, k: str, v: Any,
             save: bool, close: bool, f: Path, dflt: str
-        ) -> bool:
+    ) -> bool:
         ...
+
     def set_pub(
             self, corp: str, save: bool, close: bool
-        ) -> Workbook:
+    ) -> Workbook:
         ...

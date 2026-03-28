@@ -2,6 +2,13 @@
 Une série de fonctions génériques pour les scripts d'OFROM+.
 """
 
+import multiprocessing as mp
+import os
+import re
+import subprocess
+import threading as thr
+import time
+
 # from ofrom_outils.logs.log import log
 from ofrom_outils.common_types import (
     Callable, Iterator, Path, IterPath, IterCorp, MPList,
@@ -10,9 +17,6 @@ from ofrom_outils.common_types import (
 from ofrom_outils.pr.private_paths import (
     ROOT, CORE, CORP, META, sub_corpus
 )
-import os, re, time, subprocess
-import multiprocessing as mp
-import threading as thr
 
 # Données communes #
 # -----------------#
