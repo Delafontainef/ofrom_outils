@@ -117,7 +117,7 @@ class TokenDict(AbsTokenDict):
             c = tok.content[0]
             c = "tronc" if tok.content.endswith("-") else c
             c = D_TR[c] if c in D_TR else c
-            c = "autre" if not c in self.d else c  # get 'c' key
+            c = "autre" if c not in self.d else c  # get 'c' key
             l_anno = self._get_anno(tok, [ps_tier, le_tier, ph_tier])
             if tok.content not in self.d[c]:  # new word
                 self.d[c][tok.content] = {
