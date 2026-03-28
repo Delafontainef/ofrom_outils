@@ -18,8 +18,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install ruff
     - name: Run ruff
-      run:  ruff check
-      continue-on-error: true
+      run: | 
+        ruff check
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
     - name: Check result
-      run: ruff format --diff
-      continue-on-error: true
+      run: | 
+        ruff format --diff
+        echo "exit_code=$?" >> $GITHUB_OUTPUT
