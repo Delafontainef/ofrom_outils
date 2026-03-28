@@ -9,10 +9,10 @@ import openpyxl as xl
 from openpyxl.workbook import Workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ofrom_outils.meta.meta import Meta
-from ofrom_outils.meta.meta_validation import CELL_D, CELL_Y
 from ofrom_outils.common import fix_lext
 from ofrom_outils.common_types import Any, Path, Callable
+from ofrom_outils.meta.meta import Meta
+from ofrom_outils.meta.meta_validation import CELL_D, CELL_Y
 from ofrom_outils.stats.stats_models import StFile, StList, AbsStats
 from ofrom_outils.stats.stats_reading import (
     fill_stlist, all_file_stats, corp_stats
@@ -74,7 +74,7 @@ class Stats(AbsStats):
         self._set_md(path)
 
         # Métadonnées #
-        #-------------#
+        # -------------#
 
     def _set_md(self, path: Path | Meta = "") -> None:
         """Initialise les métadonnées."""
