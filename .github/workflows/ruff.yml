@@ -18,10 +18,8 @@ jobs:
         python -m pip install --upgrade pip
         pip install ruff
     - name: Run ruff
-      run: | 
-        ruff check
-        echo "exit_code=$?" >> $GITHUB_OUTPUT
+      if: ${{ !cancelled() }}
+      run: ruff check
     - name: Check result
-      run: | 
-        ruff format --diff
-        echo "exit_code=$?" >> $GITHUB_OUTPUT
+      if: ${{ !cancelled() }}
+      run: ruff format --diff
