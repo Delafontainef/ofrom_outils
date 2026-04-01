@@ -13,9 +13,14 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ">=3.12"
-    - name: Install ruff
+    - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install ruff
+        pip install .
     - name: Run ruff
       run: ruff check --target-version py312
+    - name: Run unittest
+      if: ${{ !cancelled() }}
+      run: |
+        python -m unittest discover -s tests -p "test_*.py"
