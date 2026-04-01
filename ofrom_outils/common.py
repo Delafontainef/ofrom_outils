@@ -14,9 +14,13 @@ from ofrom_outils.common_types import (
     Callable, Iterator, Path, IterPath, IterCorp, MPList,
     Transcription, Tier, Segment
 )
-from ofrom_outils.pr.private_paths import (
-    ROOT, CORE, CORP, META, sub_corpus
-)
+try:
+    from ofrom_outils.pr.private_paths import (
+        ROOT, CORE, CORP, META, sub_corpus
+    )
+except ImportError:
+    ROOT, CORE, CORP, META = "", "", "", ""
+    sub_corpus = None
 
 # Données communes #
 # -----------------#

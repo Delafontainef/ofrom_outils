@@ -14,7 +14,10 @@ from ofrom_outils.common import (
 from ofrom_outils.common_types import Path, Transcription
 from ofrom_outils.formats.from_ofrom import from_ofrom
 from ofrom_outils.logs.log import log
-from ofrom_outils.pr.private_paths import sub_corpus
+try:
+    from ofrom_outils.pr.private_paths import sub_corpus
+except ImportError:
+    sub_corpus = None
 from ofrom_outils.stats.stats_models import StFile, StList
 
 

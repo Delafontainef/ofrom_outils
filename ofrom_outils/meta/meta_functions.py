@@ -8,7 +8,10 @@ from ofrom_outils.common import DFLT, iter_file
 from ofrom_outils.common_types import Any, Iterator, Path, Row, Worksheet
 from ofrom_outils.meta.meta_models import (MetaDict, Tr, Spk)
 from ofrom_outils.meta.meta_validation import VVal, VCell
-from ofrom_outils.pr.private_paths import sub_corpus
+try:
+    from ofrom_outils.pr.private_paths import sub_corpus
+except ImportError:
+    sub_corpus = None
 
 type IterMeta = Iterator[tuple[str, object, dict, int, Row]]
 type SpktoSh = list[tuple[str, int]]
