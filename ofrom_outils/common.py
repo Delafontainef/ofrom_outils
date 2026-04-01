@@ -14,6 +14,7 @@ from ofrom_outils.common_types import (
     Callable, Iterator, Path, IterPath, IterCorp, MPList,
     Transcription, Tier, Segment
 )
+
 try:
     from ofrom_outils.pr.private_paths import (
         ROOT, CORE, CORP, META, sub_corpus
@@ -217,7 +218,9 @@ def ensure_outdir(d: Path) -> None:
     # ---------#
 
 
-def iter_top_tiers(tr: Transcription, spk: list | str = None) -> Iterator[Tier]:
+def iter_top_tiers(
+        tr: Transcription, spk: list | str = None
+) -> Iterator[Tier]:
     """
     Itère sur les tires d'une transcription.
     Ignore les tires d'annotation et si 'spk', ne lit que ce.s locuteur.s.
@@ -232,12 +235,14 @@ def iter_top_tiers(tr: Transcription, spk: list | str = None) -> Iterator[Tier]:
 def iter_segs(
         tr: Transcription,
         tag: str | list[str] = TAGS['tok'],
-        spk: list | str = ""
+        spk: str | list[str] = ""
 ) -> Iterator[Segment]:
     """
     Itère sur les segments d'une transcription.
     Seulement les 'tag' et si 'spk', ne lit que ce locuteur.
     """
+    if isinstance(tag, str):
+        tag = [tag] if tag else []
     if isinstance(spk, str):
         spk = [spk] if spk else []
     for tier in tr:
@@ -252,7 +257,10 @@ def iter_segs(
             yield seg
 
 
-def get_top_tiers(tr: Transcription, spk: list | str = None) -> list[Tier]:
+def get_top_tiers(
+        tr: Transcription,
+        spk: str | list[str] = None
+) -> list[Tier]:
     """La liste des tires de transcription."""
     return [ti for ti in iter_top_tiers(tr, spk)]
 
@@ -281,8 +289,9 @@ def call_praat(script: str, args: list[str]) -> None:
        - args       (list<str>) liste d'arguments pour le script
     """
     praat = os.path.join(PRAAT, "Praat.exe")
+    script = script+".praat" if not script.endswith(".praat") else script
     if not os.path.isfile(script):
-        script = os.path.join(PRAAT, script + ".praat")
+        script = os.path.join(PRAAT, script)
     subprocess.run([praat, '--run', script] + args)
 
 
@@ -309,10 +318,10 @@ def ph_ofrom(
 
 
 def mp_wait(
-        l_out: list[None], t: float = 0.5, timeout: float = -1.
+        l_out: list[None], t: float = 1., timeout: float = -1.
 ) -> Iterator[tuple[int, int]]:
     """Vérifie toutes les 't' seconde où en est le remplissage de 'l_out'.
-       Interrompt si 'timeout' est atteint (< 1. pour ignorer).
+       Interrompt si 'timeout' est atteint (< 0.1 pour ignorer).
        Renvoie le nombre d'entrées non-remplies et le total."""
     ch_mp, lo, ti = 0, len(l_out), time.time()
     while True:
@@ -321,7 +330,7 @@ def mp_wait(
             if out is not None:
                 ch_mp += 1
         yield ch_mp, lo
-        if ch_mp >= lo or (1. <= timeout <= time.time() - ti):
+        if ch_mp >= lo or (0.1 <= timeout <= time.time() - ti):
             break
         time.sleep(t)
 
