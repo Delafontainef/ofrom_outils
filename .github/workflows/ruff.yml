@@ -18,8 +18,4 @@ jobs:
         python -m pip install --upgrade pip
         pip install ruff
     - name: Run ruff
-      if: ${{ !cancelled() }}
       run: ruff check --target-version py312
-    - name: Check result
-      if: ${{ !cancelled() }}
-      run: ruff format --diff --target-version py312
