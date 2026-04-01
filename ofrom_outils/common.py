@@ -71,7 +71,7 @@ def kwarg(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         arg = arg.replace("\"", "").replace("'", "").strip()
         arg = float(arg) if re.match(r"(|-)\d+(.(|\d+)|e(|-)\d+)", arg) \
             else int(arg) if re.match(r"(|-)\d+", arg) \
-            else bool(arg) if arg in ["True", "False"] \
+            else True if arg == "True" else False if arg == "False" \
             else None if arg == "None" else arg
         if k:
             kwargs[k] = arg
@@ -83,7 +83,7 @@ def kwarg(argv: list[str]) -> tuple[list[str], dict[str, str]]:
     # ----------#
 
 
-def fix_lext(l_ext: str | list[str] | None) -> list[str]:
+def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
     """S'assure que 'l_ext' est une liste."""
 
     def fix(ext: str) -> str:
@@ -129,6 +129,23 @@ def iter_all(
                 continue
             path = os.path.join(root, file)
             yield fi, ext, file, path
+
+
+def get_files(
+        d: Path,
+        l_ext: str | list[str] = None,
+        ch_all: bool = False,
+        verbose: bool = False
+) -> list[IterPath]:
+    """Renvoie la liste des fichiers dans 'd'.
+       (Voir 'iter_file/all' pour les arguments, plus :
+        - ch_all: utilise 'iter_all' si vrai, 'iter_file' autrement)
+        - verbose: (bool) contient des IterPath si vrai, sinon des Path)
+    """
+    f = iter_all if ch_all else iter_file
+    l_res = [tpl[3] if not verbose else tpl for tpl in f(d, l_ext)]
+    l_res.sort()
+    return l_res
 
 
 def iter_core(
@@ -178,16 +195,6 @@ def get_core(
     l_tmp.sort()
     l_core.extend(l_tmp)
     return l_core
-
-
-def load_files(
-        d: Path,
-        l_ext: list[str] = None
-) -> list[Path]:
-    """Renvoie une liste de chemins."""
-    l_files = [path for fi, ext, file, path in iter_file(d, l_ext=l_ext)]
-    l_files.sort()
-    return l_files
 
 
 def ensure_outdir(d: Path) -> None:
