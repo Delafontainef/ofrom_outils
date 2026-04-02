@@ -89,8 +89,9 @@ class Meta(AbsMeta):
         for trcode, tr in self.d.tr.items():
             if k in tr.d:  # transcription
                 return "trans"
-            elif k in tr.spk: # speaker
-                ch_in = True; break
+            elif k in tr.spk:  # speaker
+                ch_in = True
+                break
         if not ch_in:
             raise KeyError(f"{k} not in MetaDict.")
         return ""
