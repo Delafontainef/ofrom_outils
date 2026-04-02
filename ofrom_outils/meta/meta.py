@@ -19,7 +19,7 @@ from ofrom_outils.meta.meta_functions import (
     set_pub_meta, save_as_csv,
     load_meta, get_meta, set_meta
 )
-from ofrom_outils.meta.meta_models import AbsMeta, MetaDict, Tr, Spk
+from ofrom_outils.meta.meta_models import AbsMeta, MetaDict, Tr
 
 
 class Meta(AbsMeta):
@@ -85,16 +85,12 @@ class Meta(AbsMeta):
         - "" :      locuteur
         - "trans":  transcription
         """
-        ch_in = False
+        if k in self.d.tr:  # transcription
+            return 'trans'
         for trcode, tr in self.d.tr.items():
-            if k in tr.d:  # transcription
-                return "trans"
-            elif k in tr.spk:  # speaker
-                ch_in = True
-                break
-        if not ch_in:
-            raise KeyError(f"{k} not in MetaDict.")
-        return ""
+            if k in tr.spk: # locuteur
+                return ''
+        raise KeyError(f"{k} not in MetaDict.")
 
     def get(
             self, trcode: str, spkcode: str = 'trans', k: str = ""
@@ -157,9 +153,12 @@ class Meta(AbsMeta):
         dflt = DFLT if not dflt else dflt
         if not self.wb:
             self.open(f)
-        val = self.get(trcode, spkcode, k)  # should be 'str'
+        try:
+            val = self.get(trcode, spkcode, k)  # should be 'str'
+        except KeyError:
+            val = None
         ch = False
-        if (not val) or (val != dflt):
+        if (not val) or (val == dflt):
             self.d = set_meta(self.wb, self.d, trcode, spkcode, k, v)
             if save:
                 self.save(f)
@@ -183,11 +182,11 @@ class Meta(AbsMeta):
 
     def iter_spk(
             self, trcode: str | list[str] = ""
-    ) -> Iterator[tuple[str, str, Spk | dict[str, str]]]:
+    ) -> Iterator[tuple[str, str, dict[str, str]]]:
         """Itère sur les locuteurs."""
         if not trcode:
             for tpl, mspk in self.d.spk.items():
-                yield tpl[0], tpl[1], mspk.copy()
+                yield tpl[0], tpl[1], mspk.d.copy()
             return
         trcode = [trcode] if isinstance(trcode, str) else trcode
         for trc in trcode:
@@ -211,7 +210,8 @@ class Meta(AbsMeta):
             ptier.setMeta("speaker", ptier.name)
             for ctier in ptier.children():
                 ctier.setMeta("speaker", ptier.name)
-            d = self.d.spk.get((tr.name, ptier.name), {})
+            d = self.d.spk.get((tr.name, ptier.name), None) # locuteur
+            d = d.d if d else {} # métadonnées du locuteur
             tr.addSpk(ptier.name, {k: v for k, v in d.items()})  # meta locuteurs
         return tr
 

@@ -6,6 +6,7 @@ from unittest.mock import patch
 import openpyxl as xl
 from openpyxl.workbook import Workbook
 
+from ofrom_outils.common_types import Transcription
 from ofrom_outils.meta.meta import (
     Meta
 )
@@ -91,9 +92,13 @@ class TestMetaContinued(unittest.TestCase):
         self.md = MetaDict()
         self.md.tr['t26a01'] = Tr()
         self.md.tr['t26a01'].spk.append("t26_001")
+        self.md.tr['t26a01'].d['location'] = "here"
         kspk = ('t26a01', 't26_001')
         self.md.spk[kspk] = Spk()
+        self.md.spk[kspk].d['age'] = "125"
         self.md.spk[kspk].sh = ('sup', 2)
+        self.md.tr_cols = ['location']
+        self.md.spk_cols = ['age']
 
     @patch("ofrom_outils.meta.meta.load_meta")
     def test_load(self, mload, _msave, _mclear, _mclose, _mopen):
@@ -102,8 +107,11 @@ class TestMetaContinued(unittest.TestCase):
         mload.assert_called_once()
         self.assertEqual(self.meta.d, self.md)
 
-    def ch_key(self, _msave, _mclear, _mclose, _mopen):
-        ...
+    def test_ch_key(self, _msave, _mclear, _mclose, _mopen):
+        self.meta.d = self.md
+        self.assertEqual(self.meta.ch_key('t26a01'), 'trans')
+        self.assertEqual(self.meta.ch_key('t26_001'), '')
+        self.assertRaises(KeyError, self.meta.ch_key, 't25')
 
     @patch("ofrom_outils.meta.meta.get_meta")
     def test_get(self, mget, _msave, _mclear, _mclose, _mopen):
@@ -119,12 +127,65 @@ class TestMetaContinued(unittest.TestCase):
         mset.assert_called_once()
         self.assertEqual(self.meta.d, self.md)
 
-    # manque ch_set
-    # manque tr_cols
-    # manque spk_cols
-    # manque iter_tr
-    # manque iter_spk
-    # manque add_to_trans
+    @patch("ofrom_outils.meta.meta.set_meta")
+    def test_ch_set(self, mset, _msave, _mclear, _mclose, _mopen):
+        mset.return_value = self.md
+        self.meta.ch_set("t26a01", "t26_001", "nom", "Petzi")
+        mset.assert_called_once()
+        self.assertEqual(self.meta.d, self.md)
+        mset.reset_mock()
+        self.meta.ch_set("t26a01", "t26_001", "age", "18")
+        assert mset.call_count == 0
+
+    def test_tr_cols(self, _msave, _mclear, _mclose, _mopen):
+        self.meta.d = self.md
+        self.assertEqual(self.meta.tr_cols(), ['location'])
+
+    def test_spk_cols(self, _msave, _mclear, _mclose, _mopen):
+        self.meta.d = self.md
+        self.assertEqual(self.meta.spk_cols(), ['age'])
+
+    def test_iter_tr(self, _msave, _mclear, _mclose, _mopen):
+        self.meta.d = self.md
+        l_res = [tpl for tpl in self.meta.iter_tr()]
+        self.assertEqual(l_res, [('t26a01', Tr(d={'location': 'here'},
+                                               spk=['t26_001']))])
+
+    def test_iter_spk(self, _msave, _mclear, _mclose, _mopen):
+        self.md.tr['t26a01'].spk.append("t26_002")
+        kspk = ('t26a01', 't26_002')
+        self.md.spk[kspk] = Spk()
+        self.md.spk[kspk].d['age'] = "8"
+        self.md.tr['t26a02'] = Tr()
+        self.md.tr['t26a02'].spk.append("t26_003")
+        kspk = ('t26a02', 't26_003')
+        self.md.spk[kspk] = Spk()
+        self.meta.d = self.md
+        l_res = [tpl for tpl in self.meta.iter_spk()]
+        self.assertEqual(l_res, [
+            ('t26a01', 't26_001', {'age': '125'}),
+            ('t26a01', 't26_002', {'age': '8'}),
+            ('t26a02', 't26_003', {})
+        ])
+        l_res = [tpl for tpl in self.meta.iter_spk('t26a02')]
+        self.assertEqual(l_res, [('t26a02', 't26_003', {})])
+
+    @patch("ofrom_outils.meta.meta.set_parent")
+    def test_add_to_trans(self, msetp, _msave, _mclear, _mclose, _mopen):
+        msetp.return_value = None
+        self.meta.d = self.md
+        trans = Transcription('t26a01')
+        ptier = trans.create(0, "t26_001", 0., 10.)
+        ctier = trans.create(1, "t26_001[anno]", 0., 10.)
+        ctier.setParent(ptier)
+        self.meta.add_to_trans(trans)
+        self.assertEqual(ptier.meta('speaker'), 't26_001')
+        self.assertEqual(ctier.meta('speaker'), 't26_001')
+        trans.name = 't25'
+        msetp.reset_mock()
+        self.meta.add_to_trans(trans)
+        assert msetp.call_count == 0
+
     @patch("ofrom_outils.meta.meta.set_pub_meta")
     @patch("ofrom_outils.meta.meta.save_as_csv")
     def test_set_pub(
