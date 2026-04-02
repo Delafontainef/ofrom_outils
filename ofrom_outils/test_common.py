@@ -316,7 +316,7 @@ class TestSetParent(unittest.TestCase):
     def test_parenting(self):
         set_parent(self.trans)
         for tier in self.trans:
-            if not "[" in tier.name:
+            if "[" not in tier.name:
                 assert tier.timeParent.call_count == 0
             else:
                 assert tier.timeParent.call_count == 1
@@ -401,7 +401,7 @@ class TestMultiprocess(unittest.TestCase):
 @patch("ofrom_outils.common.os.cpu_count")
 @patch("ofrom_outils.common._mp_thr")
 @patch("ofrom_outils.common._mp_size")
-class TestMultiprocess(unittest.TestCase):
+class TestMultithread(unittest.TestCase):
 
     def test_thread(self, mock_mpsize, mock_thr, mock_cpu):
         mock_mpsize.return_value = 100

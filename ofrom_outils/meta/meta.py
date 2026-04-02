@@ -85,13 +85,14 @@ class Meta(AbsMeta):
         - "" :      locuteur
         - "trans":  transcription
         """
-        for trcode, tr in self.d.tr.items():  # single loop
+        ch_in = False
+        for trcode, tr in self.d.tr.items():
             if k in tr.d:  # transcription
                 return "trans"
-            spkcode = tr.spk[0]
-            if k not in self.d.spk[(trcode, spkcode)].d:
-                raise KeyError(f"{k} not in MetaDict.")  # not found
-            return ""
+            elif k in tr.spk: # speaker
+                ch_in = True; break
+        if not ch_in:
+            raise KeyError(f"{k} not in MetaDict.")
         return ""
 
     def get(

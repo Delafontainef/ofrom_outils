@@ -209,16 +209,19 @@ class TestGetPubFiles(unittest.TestCase):
 
 
 @patch("ofrom_outils.meta.meta_functions.get_pub_files")
+@patch("ofrom_outils.meta.meta_functions.sub_corpus")
 class TestSetPubMeta(unittest.TestCase):
 
-    def test_set_pub(self, mock_getf):
+    def test_set_pub(self, mock_sub, mock_getf):
+        mock_sub.return_value = "subcorpus"
         mock_getf.return_value = {'equ01': '', 'equ02': ''}
         nwb, c = set_pub_meta(WB, "sh2")
         d_c = {k.value: i for i, k in enumerate(nwb['sh2'][1])}
         mock_getf.assert_called_once()
         self.assertEqual(nwb['sh2'][2][d_c['age']].value, "5")
 
-    def test_set_pub_date(self, mock_getf):
+    def test_set_pub_date(self, mock_sub, mock_getf):
+        mock_sub.return_value = "subcorpus"
         mock_getf.return_value = {'equ01': '', 'equ02': ''}
         WB['sh2'].insert_cols(1)
         for i, el in enumerate(["date_enregistrement",

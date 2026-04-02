@@ -102,6 +102,9 @@ class TestMetaContinued(unittest.TestCase):
         mload.assert_called_once()
         self.assertEqual(self.meta.d, self.md)
 
+    def ch_key(self, _msave, _mclear, _mclose, _mopen):
+        ...
+
     @patch("ofrom_outils.meta.meta.get_meta")
     def test_get(self, mget, _msave, _mclear, _mclose, _mopen):
         mget.return_value = ["t26_001"]
@@ -124,7 +127,9 @@ class TestMetaContinued(unittest.TestCase):
     # manque add_to_trans
     @patch("ofrom_outils.meta.meta.set_pub_meta")
     @patch("ofrom_outils.meta.meta.save_as_csv")
-    def test_set_pub(self, _mcsv, mpub, _msave, _mclear, _mclose, _mopen):
+    def test_set_pub(
+            self, _mcsv, mpub, _msave, _mclear, _mclose, _mopen
+    ):
         wb = xl.Workbook()
         wb.active.append(["a1", "b1"])
         wb.active.append(["1", "2"])

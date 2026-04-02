@@ -188,12 +188,13 @@ class TestVCell(unittest.TestCase):
         self.assertRaises(TypeError, VCell, "cell!", 'str')
 
     def test_get(self, mock_str):
-        mock_str = mock_str.return_value
-        mock_str.get.return_value = "legit"
+        mock_str.return_value = "legit"
         vc = VCell(CELL, 'str')
         vc.vfun = mock_str
         _ = vc.value
-        mock_str.get.assert_called_once_with(CELL)
+        mock_str.assert_called_once()
+        args = mock_str.call_args.args
+        self.assertIn('42', args)
         self.assertEqual(vc.value, "legit")
 
     def test_set(self, mock_str):
@@ -201,7 +202,9 @@ class TestVCell(unittest.TestCase):
         vc = VCell(CELL, 'str')
         vc.vfun = mock_str
         vc.value = "true"
-        mock_str.set.assert_called_once_with('true')
+        mock_str.assert_called_once()
+        args = mock_str.call_args.args
+        self.assertIn('true', args)
 
 
 if __name__ == "__main__":
