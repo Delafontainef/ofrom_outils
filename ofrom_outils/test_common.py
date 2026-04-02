@@ -412,3 +412,7 @@ class TestMultiprocess(unittest.TestCase):
         result = multithread(mock_func, files, n=2, wait=True)
         self.assertIsNone(result)
         assert mock_thr.call_count >= 1
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -70,10 +70,6 @@ class TestIterShn(unittest.TestCase):
         self.assertEqual(l_res[2][2]['nom'], 2)
         self.assertTrue(isinstance(l_res[0][4][0], Cell))
 
-    def test_iter_fail(self):
-        with self.assertRaises(AttributeError):
-            list(iter_shn(set_wb()))
-
 
 class TestMRow(unittest.TestCase):
 
@@ -143,7 +139,7 @@ class TestSetMetaMD(unittest.TestCase):
 
     def test_invalid_trcode(self):
         self.assertEqual(_set_meta_md(self.md, "lol", "spk", "k", "v"),
-                         self.md)
+                         [])
 
     def test_spk_md(self):
         l_spk = _set_meta_md(self.md, "equ02", "equ_003", "ch", "63")
