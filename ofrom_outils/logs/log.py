@@ -55,8 +55,9 @@ class Log:
         while True:
             ch = self.msvcrt.getwch()
             buf += ch
-            if ch == 'R':
+            if not buf or ch == 'R':
                 break
+        print(buf)
         return buf
 
     def _readu(self) -> str:
@@ -139,7 +140,7 @@ class Log:
         pyw = self.prt if (pyw is None) else pyw  # default to terminal
         if isinstance(pyw, str):  # file log case
             self.file_path = pyw if pyw else self.file_path
-            pyw = self.write
+            self.write(txt, mode=mode)
         try:
             pyw(txt, mode=mode)
         except Exception as e:

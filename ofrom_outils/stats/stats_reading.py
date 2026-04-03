@@ -14,6 +14,7 @@ from ofrom_outils.common import (
 from ofrom_outils.common_types import Path, Transcription
 from ofrom_outils.formats.from_ofrom import from_ofrom
 from ofrom_outils.logs.log import log
+
 try:
     from ofrom_outils.pr.private_paths import sub_corpus
 except ImportError:
@@ -77,7 +78,6 @@ def dur_full(tr: Transcription, spk: str = "") -> float:
 """Constantes globales
 D_FROM      dict        sélection de l'import par l'extension de fichier.
 D_FUN       dict        sélection des stats' par le mode.
-
 """
 D_FROM = {
     '.TextGrid': fromPraat.fromPraat,
