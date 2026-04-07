@@ -186,3 +186,6 @@ class TestTokenDict(unittest.TestCase):
             'lemme': ['bateau'], 'pos': ['NOM:com'], 'phones': [''],
             'nb': 2, 'fichiers': ['fi1', 'fi2']
         })
+
+if __name__ == "__main__":
+    unittest.main()

@@ -23,7 +23,7 @@ from ofrom_outils.stats.stats_models import StFile, StList
 
 
 # Modes #
-# -------#
+# ------#
 def wd_simple(tr: Transcription, spk: str = "") -> int:
     """Compte tous les tokens sans exception."""
     wd = 0
@@ -80,7 +80,7 @@ D_FROM      dict        sélection de l'import par l'extension de fichier.
 D_FUN       dict        sélection des stats' par le mode.
 """
 D_FROM = {
-    '.TextGrid': fromPraat.fromPraat,
+    '.textgrid': fromPraat.fromPraat,
     '.xml': from_ofrom
 }
 D_FUN = {
@@ -91,7 +91,7 @@ D_FUN = {
 
 
 # Lecture #
-# ---------#
+# --------#
 def fill_stlist(st: StList, fia: str):
     st.wd += st.fi[fia].wd
     st.dur += st.fi[fia].dur
@@ -99,8 +99,8 @@ def fill_stlist(st: StList, fia: str):
         if spk not in st.spk:
             st.spk[spk] = [el for el in tpl]
             continue
-        st.spk[spk][0] = tpl[0]
-        st.spk[spk][1] = tpl[1]
+        st.spk[spk][0] = st.spk[spk][0] + tpl[0]
+        st.spk[spk][1] = st.spk[spk][1] + tpl[1]
 
 
 def file_stats(path: Path, mode: str = "s") -> StFile:
@@ -111,7 +111,7 @@ def file_stats(path: Path, mode: str = "s") -> StFile:
     """
     # mise en place
     fi, ext = os.path.splitext(path)
-    tr, st = D_FROM[ext](path), StFile()
+    tr, st = D_FROM[ext.lower()](path), StFile()
     mode = "f" if (ext.lower() != ".xml" and mode == "x") else mode
     wdf, durf = D_FUN.get(mode, [wd_full, dur_full])
     # récupération des statistiques
@@ -124,13 +124,16 @@ def all_file_stats(
         path: Path,
         mode: str = "s",
         l_ext: str | list[str] = None,
-        st: StList = None
+        st: StList = None,
+        verbose: bool = False
 ) -> StList:
     """
     Récupère les statistiques pour un dossier de TextGrids.
     - path      (str)   le chemin du dossier.
     - mode      (str)   comment récupérer les statistiques.
     - l_ext     (list)  les extensions à lire.
+    - st        (pntr)  un StFile pré-existant.
+    - verbose   (bool)  si on affiche la progression.
     """
     l_ext = fix_lext(l_ext)
     st = StList() if not st else st
@@ -138,9 +141,10 @@ def all_file_stats(
         _, file = os.path.split(path)
         fi, _ = os.path.splitext(file)
         st.fi[fi] = file_stats(path, mode)
+        fill_stlist(st, fi)
         return st
     for fi, ext, file, spath in iter_file(path, l_ext=l_ext):
-        log(f"fill_stats: {fi}")
+        log(f"fill_stats: {fi}", verbose=verbose)
         st.fi[fi] = file_stats(spath, mode)
         fill_stlist(st, fi)
     return st
