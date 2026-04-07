@@ -1,5 +1,4 @@
 import os
-import re
 
 import openpyxl as xl
 from corflow import fromPraat
@@ -7,7 +6,7 @@ from corflow.Transcription import Transcription, Tier, Segment
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ofrom_outils.common import (
-    ROOT, TAGS, SYMS, iter_core, iter_segs
+    ROOT, TAGS, SYMS, TRUNC, iter_core, iter_segs
 )
 from ofrom_outils.common_types import Path, Iterator
 from ofrom_outils.logs import log
@@ -37,19 +36,16 @@ HEAD = ["mot", "lemme", "pos", "phones", "nb", "fichiers"]
 
 class TokenDict(AbsTokenDict):
 
-    def __init__(self):
+    def __init__(self, f: Path = "", verbose: bool = False):
         self.f = os.path.join(ROOT, "ofrom_outils", "stats",
-                              "ofrom_dict.xlsx")
+                              "ofrom_dict.xlsx") if not f else f
         self.d = {}
+        self.verbose = verbose
 
-        # Méthodes privées #
-        # ------------------#
-
-    @staticmethod
-    def _iter_toks() -> Iterator[tuple[str, str, Transcription, Segment]]:
-        """Génère un dictionnaire de tokens du corpus OFROM+."""
+    def _iter_toks(self) -> Iterator[tuple[str, str, Transcription, Segment]]:
+        """Itère sur les tokens du corpus."""
         for corp, fi, ext, file, path in iter_core():
-            log(fi)
+            log(fi, verbose=self.verbose)
             trans = fromPraat.fromPraat(path)
             for tok in iter_segs(trans, [TS, WD]):
                 yield corp, fi, trans, tok
@@ -75,14 +71,12 @@ class TokenDict(AbsTokenDict):
         return l_res
 
     @staticmethod
-    def _get_row_dict(sh: Worksheet) -> dict[str, int]:
+    def get_row_dict(sh: Worksheet, col: int = 1) -> dict[str, int]:
         """Lignes par token."""
-        d_sh = {}
-        a = 2
-        for row in sh.iter_rows(2):
-            d_sh[row[1].value] = a
-            a += 1
-        return d_sh
+        return {
+            row[col].value: a + 2
+            for a, row in enumerate(sh.iter_rows(2))
+        }
 
     @staticmethod
     def ofrom_dict_c(word: str) -> None | str:
@@ -92,7 +86,8 @@ class TokenDict(AbsTokenDict):
         c = word[0]  # first letter
         c = D_TR[c] if c in D_TR else c  # accents, etc.
         c = 'autre' if c not in L_SH else c  # dict' sheet
-        c = 'tronc' if word.endswith("-") else c  # truncation
+        c = 'tronc' if word.endswith(TRUNC) or word.endswith("/") \
+            else c  # truncation
         return c
 
         # Gérer le dictionnaire #
@@ -112,12 +107,9 @@ class TokenDict(AbsTokenDict):
                     ps_tier = trans.getName(spk + "[pos]")
                 le_tier = trans.getName(spk + LE)  # lemma
                 ph_tier = trans.getName(spk + PH)  # phones
-            if (not tok.content) or re.search(SYMS, tok.content):
+            c = self.ofrom_dict_c(tok.content)
+            if not c:
                 continue  # ignore symbols
-            c = tok.content[0]
-            c = "tronc" if tok.content.endswith("-") else c
-            c = D_TR[c] if c in D_TR else c
-            c = "autre" if c not in self.d else c  # get 'c' key
             l_anno = self._get_anno(tok, [ps_tier, le_tier, ph_tier])
             if tok.content not in self.d[c]:  # new word
                 self.d[c][tok.content] = {
@@ -133,7 +125,7 @@ class TokenDict(AbsTokenDict):
                     self.d[c][tok.content]["pos"].append(l_anno[0])
                 if l_anno[1] not in self.d[c][tok.content]['lemma']:
                     self.d[c][tok.content]["lemma"].append(l_anno[1])
-                if trans.name not in self.d[c][tok.content]['files']:
+                if fi not in self.d[c][tok.content]['files']:
                     self.d[c][tok.content]['files'].append(fi)
         return self.d
 
@@ -145,16 +137,21 @@ class TokenDict(AbsTokenDict):
         self.d, wb = {}, xl.load_workbook(path)
         for shn in wb.sheetnames:
             self.d[shn], sh = {}, wb[shn]
-            d_c = {c.value: i for i, c in enumerate(sh[1])}
+            d_c = {c.value: i + 1 for i, c in enumerate(sh[1])}
             for i, row in enumerate(sh.iter_rows(min_row=2)):
                 i = i + 2
                 word = sh.cell(row=i, column=d_c['mot']).value
+                nb = sh.cell(row=i, column=d_c['nb']).value
                 self.d[shn][word] = {
-                    'lemme': sh.cell(row=i, column=d_c['lemme']).value,
-                    'pos': sh.cell(row=i, column=d_c['pos']).value,
-                    'phones': sh.cell(row=i, column=d_c['phones']).value,
-                    'nb': sh.cell(row=i, column=d_c['nb']).value,
-                    'fichiers': sh.cell(row=i, column=d_c['fichiers']).value
+                    'lemme': [v.strip() for v in
+                              sh.cell(row=i, column=d_c['lemme']).value.split(",")],
+                    'pos': [v.strip() for v in
+                            sh.cell(row=i, column=d_c['pos']).value.split(",")],
+                    'phones': [v.strip() for v in
+                               sh.cell(row=i, column=d_c['phones']).value.split(",")],
+                    'nb': int(nb) if nb else 0,
+                    'fichiers': [v.strip() for v in
+                                 sh.cell(row=i, column=d_c['fichiers']).value.split(",")]
                 }
         return self.d
 
@@ -165,7 +162,7 @@ class TokenDict(AbsTokenDict):
         sh = wb.active
         sh.title = "autre"
         sh.append(HEAD)
-        for c in L_SH:
+        for c, d_c in self.d.items():
             if c == "autre":
                 sh = wb["autre"]
             elif c not in wb.sheetnames:
@@ -174,23 +171,19 @@ class TokenDict(AbsTokenDict):
                 sh.append(HEAD)
             else:
                 sh = wb[c]
-            # d_sh = self._get_row_dict(sh)
-            d_c = self.d[c]
             l_c = list(d_c.keys())
             l_c.sort()
             for k in l_c:
                 d_v = d_c[k]
-                l_p, l_le, ph = d_v['pos'], d_v['lemma'], d_v['phones']
-                nb, l_fi = d_v['nb'], d_v['files']
+                l_p, l_le, l_ph = d_v['pos'], d_v['lemme'], d_v['phones']
+                nb, l_fi = d_v['nb'], d_v['fichiers']
                 pos = ",".join(l_p)
                 le = ",".join(l_le)
+                ph = ",".join(l_ph)
                 vf = ",".join(l_fi) if len(l_fi) <= 10 else \
                     str(len(l_fi))  # ahem...
                 sh.append([k, le, pos, ph, nb, vf])
         wb.save(path)
-
-        # Utiliser le dictionnaire #
-        # --------------------------#
 
     def get(self, word: str) -> None | dict[str, str]:
         """Récupère les informations sur 'word' à partir du dictionnaire 'd'.

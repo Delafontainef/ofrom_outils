@@ -1,14 +1,17 @@
+import os
 import sys
-import unittest
 import tempfile
+import unittest
 from unittest.mock import patch, MagicMock
 
 from ofrom_outils.logs.log import log, Log
+
 
 def set_tmp(suffix=".xlsx"):
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp_name = tmp.name
     return tmp_name
+
 
 @patch("ofrom_outils.logs.log.print")
 class TestLog(unittest.TestCase):
@@ -40,7 +43,7 @@ class TestLogClass(unittest.TestCase):
     @patch("msvcrt.getwch")
     def test_update_for_windows(self, mock_getwch, _mock_w):
         mock_getwch.side_effect = list("\x1b[12;40R")
-        tlog = Log() # internal import
+        tlog = Log()  # internal import
         pos = tlog.update()
         self.assertEqual(pos, [12, 39])
 
@@ -56,7 +59,7 @@ class TestLogClass(unittest.TestCase):
     ):
         mock_tcgetattr.return_value = "state"
         mock_read.side_effect = list("\x1b[12;40R")
-        tlog = Log() # internal imports
+        tlog = Log()  # internal imports
         pos = tlog.update()
         self.assertEqual(pos, [12, 39])
 
@@ -91,16 +94,18 @@ class TestLogClass(unittest.TestCase):
 
     def test_write(self, _mock_w):
         self.tlog.file_path = set_tmp()
-        self.tlog.write("I don't ")
-        self.tlog.write("know what ")
-        with open(self.tlog.file_path, 'r', encoding="utf-8") as rf:
-            txt = rf.read()
-        self.assertEqual(txt, "I don't know what ")
-        self.tlog.write("went wrong", "w")
-        with open(self.tlog.file_path, 'r', encoding="utf-8") as rf:
-            txt = rf.read()
-        self.assertEqual(txt, "went wrong")
-        self.tlog.file_path = ""
+        try:
+            self.tlog.write("I don't ")
+            self.tlog.write("know what ")
+            with open(self.tlog.file_path, 'r', encoding="utf-8") as rf:
+                txt = rf.read()
+            self.assertEqual(txt, "I don't know what ")
+            self.tlog.write("went wrong", "w")
+            with open(self.tlog.file_path, 'r', encoding="utf-8") as rf:
+                txt = rf.read()
+            self.assertEqual(txt, "went wrong")
+        finally:
+            os.remove(self.tlog.file_path)
 
     @patch("ofrom_outils.logs.log.Log.write")
     @patch("ofrom_outils.logs.log.Log.prt")

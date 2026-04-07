@@ -5,10 +5,10 @@ Modèles pour les statistiques d'OFROM+.
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from ofrom_outils.common_types import Any, Path, Callable
+from ofrom_outils.common_types import Path, Callable
 from ofrom_outils.meta.meta import Meta
 
-type OFRDict = dict[str, dict[str, dict[str, Any]]]
+type OFRDict = dict[str, dict[str, dict[str, str | list[str] | int]]]
 
 
 @dataclass
