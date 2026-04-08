@@ -14,7 +14,6 @@ venv/
 *.idea
 
 # En développement
-ofrom_outils/audio/
 ofrom_outils/export/
 ofrom_outils/pos/
 
