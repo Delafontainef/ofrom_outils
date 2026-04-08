@@ -20,7 +20,7 @@ try:
         ROOT, CORE, CORP, META, sub_corpus
     )
 except ImportError:
-    ROOT, CORE, CORP, META = "", "", "", ""
+    ROOT, CORE, CORP, META = "", "", [], ""
     sub_corpus = None
 
 # Données communes #
@@ -46,9 +46,6 @@ COMMON_HOME: Path = os.path.abspath(os.path.dirname(__file__))
 PRAAT: Path = os.path.join(ROOT, "programmes", "praat")
 FFMPEG: Path = os.path.join(ROOT, "programmes", "ffmpeg", "bin")
 LOGS: Path = os.path.join(ROOT, "ofrom_outils", "logs")
-CORE = CORE
-CORP = CORP
-META = META
 PAUSE: str = "_"
 TRUNC: str = "-"
 SYMS: str = r"[_#%@]"
@@ -95,7 +92,7 @@ def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
         ext = "." + ext if not ext.startswith(".") else ext
         return ext.lower()
 
-    l_ext = [".textgrid"] if l_ext is None else l_ext
+    l_ext: list[str] | str = [".textgrid"] if l_ext is None else l_ext
     if isinstance(l_ext, list):
         return [fix(ext) for ext in l_ext]
     return [fix(l_ext)]
@@ -141,7 +138,7 @@ def get_files(
         l_ext: str | list[str] = None,
         ch_all: bool = False,
         verbose: bool = False
-) -> list[IterPath]:
+) -> list[Path | IterPath]:
     """Renvoie la liste des fichiers dans 'd'.
        (Voir 'iter_file/all' pour les arguments, plus :
         - ch_all: utilise 'iter_all' si vrai, 'iter_file' autrement)
@@ -165,7 +162,7 @@ def iter_core(
        - l_ext:     (list<str>) ne retourne que les fichiers avec 
                                 ces extensions.
     """
-    corp = CORP if corp is None else corp
+    corp: list[str] = CORP if corp is None else corp
     l_ext = fix_lext(l_ext)
     for c in corp:
         sd = sub_corpus(c, sub)
@@ -289,7 +286,7 @@ def call_praat(script: str, args: list[str]) -> None:
        - args       (list<str>) liste d'arguments pour le script
     """
     praat = os.path.join(PRAAT, "Praat.exe")
-    script = script+".praat" if not script.endswith(".praat") else script
+    script = script + ".praat" if not script.endswith(".praat") else script
     if not os.path.isfile(script):
         script = os.path.join(PRAAT, script)
     subprocess.run([praat, '--run', script] + args)
@@ -374,7 +371,8 @@ def multiprocess(
         func: Callable,
         l_files: list[Path],
         args: list = None,
-        n: int = -1, wait: bool = True
+        n: int = -1,
+        wait: bool = True
 ) -> None | tuple[list[mp.Process], MPList]:
     """Génère des sous-processus pour une fonction 'func' 
        avec une liste de fichiers comme premier argument.
@@ -389,7 +387,7 @@ def multiprocess(
               et celle de sortie.
     """
     args = [] if args is None else args
-    n = os.cpu_count() if n < 1 else n  # number of cores
+    n = (os.cpu_count() or 1) if n < 1 else n  # number of cores
     l_proc, max_size = [], 0  # batch size by file size
     mp_man = mp.Manager()
     l_out = mp_man.list()
@@ -423,7 +421,7 @@ def multithread(
 ) -> None | tuple[list[thr.Thread], list]:
     """Voir 'multiprocess' mais avec des threads."""
     args = [] if args is None else args
-    n = os.cpu_count() if n < 1 else n  # number of cores
+    n = (os.cpu_count() or 1) if n < 1 else n  # number of cores
     l_thr, l_out, max_size = [], [None for _ in l_files], 0
     for fi in l_files:  # get max_size (of l_files)
         max_size += _mp_size(fi)

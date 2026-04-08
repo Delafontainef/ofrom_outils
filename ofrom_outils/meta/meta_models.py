@@ -8,7 +8,7 @@ from typing import Protocol, runtime_checkable
 from openpyxl.cell.cell import Cell
 from openpyxl.workbook.workbook import Workbook
 
-from ofrom_outils.common_types import (Any, Path, Callable)
+from ofrom_outils.common_types import (Any, Path, Callable, Self)
 
 type spk_key = tuple[str, str]
 
@@ -124,13 +124,15 @@ class AbsMeta(Protocol):
     def set_path(self, f: Path) -> None:
         ...
 
-    def load(self, f: Path, keep_open: bool) -> None:
+    def load(self, f: Path, keep_open: bool) -> Self:
         ...
 
     def ch_key(self, k: str) -> str:
         ...
 
-    def get(self, trcode: str, spkcode: str, k: str) -> str | dict[str, str]:
+    def get(
+            self, trcode: str, spkcode: str, k: str
+    ) -> str | list[str] | dict[str, str]:
         ...
 
     def set(

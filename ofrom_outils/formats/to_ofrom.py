@@ -27,7 +27,8 @@ class Stats:
                            'RatioGap': -1., 'GapDurations_Median': -1.,
                            'GapDurations_Q1': -1., 'GapDurations_Q3': -1.,
                            'TurnChangesCount': 0, 'TurnChangesCount_Gap': 0,
-                           'TurnChangesCount_Overlap': 0, 'TurnChangesRate': -1.,
+                           'TurnChangesCount_Overlap': 0,
+                           'TurnChangesRate': -1.,
                            'TurnChangesRate_Gap': -1.,
                            'TurnChangesRate_Overlap': -1.}}
         self.gaps = []
@@ -39,7 +40,8 @@ class Stats:
     def setup(self, l_tiers):
         for tier in l_tiers:
             self.d_spk[tier.name] = \
-                {'speakerID': tier.name, 'TimeSpeech': 0.0, 'TimeArticulation': 0.0,
+                {'speakerID': tier.name, 'TimeSpeech': 0.0,
+                 'TimeArticulation': 0.0,
                  'TimeArticulation_Alone': 0.0, 'TimeArticulation_Overlap': 0.0,
                  'TimeArticulation_Overlap_Continue': 0.0,
                  'TimeArticulation_Overlap_TurnChange': 0.0,
@@ -50,7 +52,8 @@ class Stats:
                  'RatioArticulation_Overlap_TurnChange': -1.,
                  'RatioSilentPause': -1., 'RatioFilledPause': -1.,
                  'NumTokens': 0, 'NumSyllables': 0, 'NumSilentPauses': 0,
-                 'NumFilledPauses': 0, 'SpeechRate': -1., 'SilentPauseRate': -1.,
+                 'NumFilledPauses': 0, 'SpeechRate': -1.,
+                 'SilentPauseRate': -1.,
                  'FilledPauseRate': -1., 'ArticulationRate': -1.,
                  'PauseDur_SIL_Median': -1., 'PauseDur_SIL_Q1': -1.,
                  'PauseDur_SIL_Q3': -1., 'PauseDur_FIL_Median': -1.,
@@ -73,7 +76,8 @@ class Stats:
             ach = True if (l_over and l_over[-1][1] == aseg.end) else False
             if (aseg.content not in l_syms) and ("%" not in aseg.content):
                 self.d_spk[atier.name]['TimeArticulation_Overlap'] += aodur
-                self.d_spk[atier.name]['TimeArticulation_Alone'] += (dur - aodur)
+                self.d_spk[atier.name]['TimeArticulation_Alone'] += (
+                            dur - aodur)
             return ach, aodur
 
         if not l_tiers:
@@ -256,7 +260,8 @@ def _write_segs(l_tiers, stats):
             ea = "{:.04f}".format(pos_seg.end)
             l_args = [("id", str(i_sub)), ("speaker_id", tiera.name),
                       ("soundsegment_id", str(i_sega)),
-                      ("interval_nr", pos_seg.index()), ("tmin", sa), ("tmax", ea),
+                      ("interval_nr", pos_seg.index()), ("tmin", sa),
+                      ("tmax", ea),
                       ("text", tok_seg.content),
                       ("pos_" + anno, pos_seg.content)]
             i_sub += 1
@@ -273,7 +278,8 @@ def _write_segs(l_tiers, stats):
             if lem.count("|") > 3:
                 l_lem = lem.split("|")
                 l_args = l_args + [("pos_ext_min", l_lem[1]),
-                                   ("disfluency", l_lem[3]), ("lemma", l_lem[0])]
+                                   ("disfluency", l_lem[3]),
+                                   ("lemma", l_lem[0])]
             else:
                 l_args = l_args + [("pos_ext_min", ""), ("disfluency", ""),
                                    ("lemma", lem)]
@@ -301,8 +307,10 @@ def _write_segs(l_tiers, stats):
         ea = "{:.04f}".format(sega.end)
         d = "{:.04f}".format(sega.end - sega.start)
         l_args = [("id", str(i_sega)), ("speaker_id", tiera.name),
-                  ("name", tiera.name + "_" + str(i_sega)), ("interval_nr", i_nra),
-                  ("duration", d), ("word_count", lca), ("tmin", sa), ("tmax", ea),
+                  ("name", tiera.name + "_" + str(i_sega)),
+                  ("interval_nr", i_nra),
+                  ("duration", d), ("word_count", lca), ("tmin", sa),
+                  ("tmax", ea),
                   ("text", html.escape(sega.content)),
                   ("type", sega.meta("type", "tech"))]
         return add_args("soundsegment", l_args)
@@ -567,8 +575,9 @@ def _write_metadata(trans, enc, div="speakers"):
         if ch:
             txta = txta + ntxt + "\t\t\t</speaker_relations>\n\t\t</relations>\n"
         else:
-            txta = txta + ("\t\t<relations>\n\t\t\t<speaker_relations relationID="
-                           "\"proximity\"/>\n\t\t</relations>\n")
+            txta = txta + (
+                "\t\t<relations>\n\t\t\t<speaker_relations relationID="
+                "\"proximity\"/>\n\t\t</relations>\n")
         return txta
 
         # Variables
@@ -619,7 +628,8 @@ def _write_stats(trans, stats):
             for k, v in d_vals.items():
                 if not (k == "tiers" or k == "sheet"):
                     d_cop[k] = v
-            txta = txta + ("{0}<speaker id=\"{1}\" name=\"{1}\"".format(tab, spk))
+            txta = txta + (
+                "{0}<speaker id=\"{1}\" name=\"{1}\"".format(tab, spk))
             txta = write_args(txta, d_cop)
             txta = txta + "/>\n"
         txta = txta + "\t\t\t</speakers>\n"
