@@ -12,6 +12,8 @@ import hashlib
 import html
 import os
 
+from typing import Callable
+
 from corflow.Transcription import Corpus, Transcription
 
 # Variables

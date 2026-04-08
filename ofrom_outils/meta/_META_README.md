@@ -6,6 +6,7 @@ Tout le code concernant la manipulation des métadonnées.
 
 Tout passe par la classe '*Meta*':
 > from ofrom_outils.meta.meta import Meta
+> 
 > meta = Meta().load()
 
 À l'initialisation, la classe *Meta* aura un chemin vers le fichier de 
@@ -24,9 +25,13 @@ Pour modifier les métadonnées avec plus de prudence, '*.ch_set()*' ne modifie
 que s'il n'existe pas déjà une valeur valide dans la métadonnée à modifier. 
 
 > valeur = meta.get(<code_transcription>, <code_locuteur>, <nom_de_colonne>)
+> 
 > meta.set(<code_transcription>, <code_locuteur>, <nom_de_colonne>, <valeur>)
+> 
 > meta.ch_set(idem)
+> 
 > meta.add_to_trans(Transcription)
+> 
 > meta.set_pub(<nom_du_sous_corpus>, <chemin_du_corpus>)
 
 Pour ajouter les métadonnées à une Transcription (librairie 'corflow'), 

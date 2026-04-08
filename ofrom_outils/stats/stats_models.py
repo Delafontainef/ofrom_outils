@@ -50,7 +50,7 @@ class AbsStats(Protocol):
     l_ext: list[str]
 
     def set_meta_stats(
-            self, st: StList, path: Path, save: bool = True
+            self, st: StList, path: Path, safe: bool, save: bool = True
     ) -> None:
         ...
 
@@ -64,7 +64,7 @@ class AbsStats(Protocol):
     ) -> dict[str, StList]:
         ...
 
-    def ch_typ(self, typ: str) -> Callable:
+    def ch_typ(self, typ: str) -> Callable | None:
         ...
 
     def load_dir(self,

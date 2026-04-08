@@ -1,7 +1,7 @@
 import os
 import sys
 
-from ofrom_outils.common_types import IO
+from ofrom_outils.common_types import IO, Any
 
 
 def log(txt: str, end: str = " " * 40 + "\r", verbose: bool = True):
@@ -10,7 +10,7 @@ def log(txt: str, end: str = " " * 40 + "\r", verbose: bool = True):
         print(txt, end=end)
 
 
-def _w(txt: str, wf: IO | None = None) -> None:
+def _w(txt: str, wf: IO = None) -> None:
     """Écrit dans un fichier/terminal."""
     wf = sys.stdout if wf is None else wf
     wf.write(txt)
@@ -127,7 +127,7 @@ class Log:
             wf.write(txt)
 
     def log(self,
-            txt: str, pyw: object | str | None = None, mode: str = "a"
+            txt: str, pyw: Any = None, mode: str = "a"
             ) -> None:
         """Écrit dans 'pyw'.
            - txt        (str) le texte à écrire/afficher.

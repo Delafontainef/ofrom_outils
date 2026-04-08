@@ -22,7 +22,7 @@ SCOR = "sous-corpus"
 HEADER = [SCOR, "nb_loc", "nb_enr", "nb_mots", "duree"]
 
 
-def _open_excel(path: Path, shn: str) -> tuple[Workbook, Worksheet]:
+def open_excel(path: Path, shn: str) -> tuple[Workbook, Worksheet]:
     """Ouvre un fichier Excel et sélectionne le feuillet."""
     fi, ext = os.path.splitext(path)
     if os.path.isfile(path) and ext.lower() == ".xlsx":
@@ -34,7 +34,7 @@ def _open_excel(path: Path, shn: str) -> tuple[Workbook, Worksheet]:
             sh = wb[shn]
     else:
         wb = xl.Workbook()
-        sh = wb.active
+        sh: Worksheet = wb.active
         sh.title = shn
     return wb, sh
 
@@ -125,7 +125,7 @@ class Stats(AbsStats):
         self._set_md(path)
         res = {}
         for trcode, stf in st.fi.items():
-            k = self.md.get(trcode, "trans", typ)
+            k: str = self.md.get(trcode, "trans", typ)
             if k not in res:
                 res[k] = StList()
             res[k].fi[trcode] = stf
@@ -141,7 +141,7 @@ class Stats(AbsStats):
         for trcode, stf in st.fi.items():
             for spkcode, tpl in stf.spk.items():
                 wd, dur = tpl
-                k = self.md.get(trcode, spkcode, typ)
+                k: str = self.md.get(trcode, spkcode, typ)
                 if k not in res:
                     res[k] = StList()
                 if trcode not in res[k].fi:
@@ -209,7 +209,7 @@ class Stats(AbsStats):
                  shn: str = "general"
                  ) -> None:
         """Sauvegarde les statistiques dans un fichier Excel."""
-        wb, sh = _open_excel(path, shn)
+        wb, sh = open_excel(path, shn)
         _write_table(sh, d_st, HEADER)
         wb.save(path)
 
@@ -222,7 +222,7 @@ class Stats(AbsStats):
         Sauvegarde les statistiques dans un fichier Excel.
         Crée une table par sous-corpus plus une table générale.
         """
-        wb, sh = _open_excel(path, typ)
+        wb, sh = open_excel(path, typ)
         func = self.ch_typ(typ)
         head = HEADER.copy()
         d_st = self.sort(st, SCOR, self.sort_tr)
