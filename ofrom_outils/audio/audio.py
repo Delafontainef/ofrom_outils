@@ -66,7 +66,7 @@ def clean_ext(path: Path) -> Path:
     fi = fi[1:] if ch else fi
     while "." in fi:
         fi, ext = os.path.splitext(fi)
-        if not "." in fi:
+        if "." not in fi:
             break
     fi = "." + fi if ch else fi
     npath = os.path.join(d, fi + o_ext)
@@ -243,7 +243,7 @@ def all_audio_level(
             l_out.append((fi, "-", mean_vol, g_mean, sd))
     if ch_file:
         with open(ch_file, "w", encoding="utf-8") as f:
-            f.write(f"nb;file;type;file_mean;global_mean;deviation\n")
+            f.write("nb;file;type;file_mean;global_mean;deviation\n")
             f.write(f"0;Global;None;{g_mean};{g_mean};{sd}\n")
             for a, tup in enumerate(l_out):
                 f.write(f"{a + 1};{tup[0]};{tup[1]};{tup[2]};{tup[3]};"
@@ -294,7 +294,7 @@ def all_audio_mean(
         d_out[fi] = (mean_vol, g_mean)
     for fi, ext, file, path in iter_all(path):  # process
         ch, fi, ext, file, path = check(fi, ext, file, path)
-        if (not ch) or (not fi in d_out):
+        if (not ch) or (fi not in d_out):
             continue
         log(fi, verbose=verbose)
         mean_vol, g_mean = d_out[fi]

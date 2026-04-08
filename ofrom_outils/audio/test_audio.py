@@ -48,7 +48,7 @@ class TestProbe(unittest.TestCase):
 
     def test_probe_all(self, mock_sproc):
         mock = mock_sproc.Popen.return_value
-        mock2 = mock.stdout.read.return_value = (
+        _mock2 = mock.stdout.read.return_value = (
             b"Duration: 00:04:31.281, 44100 Hz, 2 channels Stream mapping")
         d_res = probe("a_path", True)
         self.assertEqual(d_res, {'duration': 273.81, 'channel': 2,
