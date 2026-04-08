@@ -7,12 +7,6 @@ from ofrom_outils.stats.stats import (
 from ofrom_outils.stats.stats_models import StFile, StList
 
 
-def set_tmp(suffix=".xlsx"):
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-        tmp_name = tmp.name
-    return tmp_name
-
-
 @patch("ofrom_outils.stats.stats.xl")
 @patch("ofrom_outils.stats.stats.os.path.isfile")
 class TestOpenExcel(unittest.TestCase):
@@ -178,6 +172,7 @@ class TestStats(unittest.TestCase):
         assert mock_ch.call_count == 1
         mock_wb.save.assert_called_once_with("a_path.xlsx")
 
+
 @patch("ofrom_outils.stats.stats.Stats")
 class TestGetCorpusStats(unittest.TestCase):
 
@@ -189,6 +184,7 @@ class TestGetCorpusStats(unittest.TestCase):
         mock.sort.assert_called_once()
         mock.to_excel.assert_called_once()
         assert mock.to_excel_typ.call_count == 2
+
 
 if __name__ == "__main__":
     unittest.main()
