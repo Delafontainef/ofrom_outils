@@ -39,8 +39,8 @@ def open_excel(path: Path, shn: str) -> tuple[Workbook, Worksheet]:
     return wb, sh
 
 
-def _write_table(sh: Worksheet, d_st: dict[str, StList], head: list[str]
-                 ) -> tuple[int, int, int, float]:
+def write_table(sh: Worksheet, d_st: dict[str, StList], head: list[str]
+                ) -> tuple[int, int, int, float]:
     """Crée une nouvelle table."""
     head = HEADER if not head else head
     sh.append([])
@@ -70,7 +70,7 @@ class Stats(AbsStats):
         self.md = None
         self.st = None
         self.mode = mode
-        self.l_ext = [".textgrid"] if l_ext is None else l_ext
+        self.l_ext = fix_lext(l_ext)
         self._set_md(path)
 
         # Métadonnées #
@@ -81,7 +81,8 @@ class Stats(AbsStats):
         if isinstance(path, Meta):
             self.f, self.md = "", path
             return
-        elif (not self.md) or (path and self.f != path):
+        elif ((not self.md) or
+              (os.path.isfile(path) and self.f != path)):
             self.f, self.md = path, Meta(path)
             self.md.load()
 
@@ -189,7 +190,7 @@ class Stats(AbsStats):
         self._set_md(path)
 
         # Tri #
-        # -----#
+        # --- #
 
     def sort(self,
              st: StList,
@@ -201,7 +202,7 @@ class Stats(AbsStats):
         return func(st, typ)
 
         # Sauvegarde #
-        # ------------#
+        # ---------- #
 
     def to_excel(self,
                  path: Path,
@@ -210,7 +211,7 @@ class Stats(AbsStats):
                  ) -> None:
         """Sauvegarde les statistiques dans un fichier Excel."""
         wb, sh = open_excel(path, shn)
-        _write_table(sh, d_st, HEADER)
+        write_table(sh, d_st, HEADER)
         wb.save(path)
 
     def to_excel_typ(self,
@@ -229,9 +230,9 @@ class Stats(AbsStats):
         for corp, sst in d_st.items():
             head[0] = corp
             d_sst = self.sort(sst, typ, func)
-            _write_table(sh, d_sst, head)
+            write_table(sh, d_sst, head)
         head[0] = typ
-        _write_table(sh, self.sort(st, typ, func), head)
+        write_table(sh, self.sort(st, typ, func), head)
         wb.save(path)
 
 
