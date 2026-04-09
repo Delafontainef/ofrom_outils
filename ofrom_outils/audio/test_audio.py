@@ -242,9 +242,9 @@ class TestAllAudioMean(unittest.TestCase):
         mock_check.side_effect = lambda fi, ext, file, path: (True, fi, ext,
                                                               file, path)
         l_out = ("nb;file;type;file_mean;global_mean;deviation\n" +
-                 f"0;Global;None;5,0;5,0;0,8\n" +
-                 f"1;fi1;LOW;4,0;5,0;0,8\n" +
-                 f"1;fi2;HIGH;6,0;5,0;0,8\n").encode("utf-8")
+                 "0;Global;None;5,0;5,0;0,8\n" +
+                 "1;fi1;LOW;4,0;5,0;0,8\n" +
+                 "1;fi2;HIGH;6,0;5,0;0,8\n").encode("utf-8")
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as tmp:
             tmp.write(l_out)
             l_out = tmp.name
