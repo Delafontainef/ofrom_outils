@@ -169,7 +169,7 @@ def setup_conv(
     return npath, ac, ar, d_md
 
 
-def _subp(
+def subp(
         path: Path,
         npath: Path,
         ext: str,
@@ -177,8 +177,7 @@ def _subp(
         rem: bool = True
 ) -> Path:
     """Force la conversion. Supprime l'ancien fichier si 'rem==True'."""
-    if not npath:
-        npath = _new_ext(path, ext)
+    npath = _new_ext(path, ext) if not npath else npath
     with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
         tmp = tmp_file.name
     try:
@@ -191,7 +190,9 @@ def _subp(
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
-    if os.path.isfile(npath) and rem and os.path.isfile(path):
+    if (rem and npath != path
+            and os.path.isfile(npath)
+            and os.path.isfile(path)):
         os.remove(path)
     return npath
 
@@ -256,11 +257,11 @@ def audio_mean(
         mean: float, g_mean: float, ext: str, rem: bool = True
 ) -> None:
     """Change le volume d'un fichier audio à 'mean'."""
-    n_path, ac, ar, d_md = setup_conv(path, npath, ext, 44100)
-    dif = (mean - g_mean) * -1
-    _subp(path, n_path, os.path.splitext(path)[1],
-          [FFM, "-hide_banner", "-stats", "-loglevel", "error", "-y",
-           "-i", path, "-filter:a", f"volume={dif}dB"], rem)
+    n_path, ac, ar, _d_md = setup_conv(path, npath, ext, 44100)
+    dif = g_mean - mean
+    subp(path, n_path, os.path.splitext(path)[1],
+         [FFM, "-hide_banner", "-stats", "-loglevel", "error", "-y",
+          "-i", path, "-filter:a", f"volume={dif}dB"], rem)
 
 
 def all_audio_mean(
@@ -288,7 +289,7 @@ def all_audio_mean(
     d_out = {}
     if isinstance(l_out, str):  # file to list
         l_out = to_list(l_out)
-    elif l_out is None:
+    elif l_out is None:  # get audio levels
         l_out = all_audio_level(path)[0]
     for fi, mes, mean_vol, g_mean, sd in l_out:  # fit l_out in d_out
         d_out[fi] = (mean_vol, g_mean)
@@ -303,19 +304,20 @@ def all_audio_mean(
         audio_mean(path, os.path.join(npath, file), mean_vol, g_mean, ext, rem)
 
     # Audio cut #
-    # -----------#
+    # --------- #
 
 
-def audio_cut(path: Path, npath: Path, s: float, e: float) -> None:
+def audio_cut(path: Path, npath: Path, s: float, e: float,
+              verbose=False) -> None:
     """(Legacy) Découpe le son avec ffmpeg."""
     ns, ne = _to_time(s), _to_time(e)
-    log(f"{s}, {e}, {ns}, {ne}")
-    _subp(path, npath, os.path.splitext(path)[1],
-          [FFM, "-hide_banner", "-stats", "-loglevel", "error", "-y",
-           "-i", path, "-ss", f"{ns}", "-to", f"{ne}"], False)
+    log(f"{s}, {e}, {ns}, {ne}", verbose=verbose)
+    subp(path, npath, os.path.splitext(path)[1],
+         [FFM, "-hide_banner", "-stats", "-loglevel", "error", "-y",
+          "-i", path, "-ss", f"{ns}", "-to", f"{ne}"], False)
 
     # Format conversion #
-    # -------------------#
+    # ----------------- #
 
 
 def to_mp3(
@@ -323,10 +325,10 @@ def to_mp3(
 ) -> Path:
     """Convertit en MP3."""
     npath, ac, ar, d_md = setup_conv(path, npath, ".mp3", 44100)
-    return _subp(path, npath, ".mp3", [FFM, "-hide_banner", "-stats",
-                                       "-loglevel", "error", "-y", "-i", path,
-                                       "-vn", "-qscale:a",
-                                       "2"], rem)
+    return subp(path, npath, ".mp3", [FFM, "-hide_banner", "-stats",
+                                      "-loglevel", "error", "-y", "-i", path,
+                                      "-vn", "-qscale:a",
+                                      "2"], rem)
 
 
 def to_wav(
@@ -344,10 +346,10 @@ def to_wav(
         d_md = probe(npath)
         if d_md['channel'] == 1 and d_md['sample_rate'] <= 44100:
             return None
-    return _subp(path, npath, ".wav", [FFM, "-hide_banner", "-stats",
-                                       "-loglevel", "error", "-y", "-i", path,
-                                       "-vn", "-ac", ac,
-                                       "-ar", ar, "-sample_fmt", "s16"], rem)
+    return subp(path, npath, ".wav", [FFM, "-hide_banner", "-stats",
+                                      "-loglevel", "error", "-y", "-i", path,
+                                      "-vn", "-ac", ac,
+                                      "-ar", ar, "-sample_fmt", "s16"], rem)
 
 
 def to_m4a(
@@ -355,10 +357,10 @@ def to_m4a(
 ) -> Path:
     """Convertit en M4A."""
     npath, ac, ar, d_md = setup_conv(path, npath, ".wav", 44100)
-    return _subp(path, npath, ".m4a", [FFM, "-hide_banner", "-stats",
-                                       "-loglevel", "error", "-y", "-i", path,
-                                       "-vn", "-ac", ac,
-                                       "-ar", ar], rem)
+    return subp(path, npath, ".m4a", [FFM, "-hide_banner", "-stats",
+                                      "-loglevel", "error", "-y", "-i", path,
+                                      "-vn", "-ac", ac,
+                                      "-ar", ar], rem)
 
 
 D_F = {"wav": (to_wav, ".wav"),
