@@ -4,10 +4,13 @@ Geographical data © GeoNames,
 licensed under CC BY 4.0 — www.geonames.org
 """
 
-import io, os
-import requests
+import io
+import os
+import sqlite3
 import zipfile
 from contextlib import contextmanager
+
+import requests
 
 from ofrom_outils.common_types import Path, Iterator, Callable
 
@@ -64,6 +67,21 @@ def _open_zip_txt(zip_path: Path, filename: str) -> Iterator[io.TextIOWrapper]:
         with zf.open(filename, "r") as raw:
             with io.TextIOWrapper(raw, encoding="utf-8") as rf:
                 yield rf
+
+
+@contextmanager
+def _open_connection(
+        conn: sqlite3.Connection | None = None
+) -> Iterator[tuple[sqlite3.Connection, sqlite3.Cursor]]:
+    if conn is not None:
+        yield conn, conn.cursor()
+        return
+
+    local_conn = sqlite3.connect(LOCAL_DB)
+    try:
+        yield local_conn, local_conn.cursor()
+    finally:
+        local_conn.close()
 
 
 def _get_french_names(alternate_file: Path) -> dict[str, str]:
@@ -160,14 +178,14 @@ def _get_country_geoids(country_file: Path) -> dict[str, str]:
 
 
 LOCATION_FUNC: dict[str, tuple[str, Callable]] = {
-    "country": ("countryInfo.txt", _get_country_geoids),
+    "pays": ("countryInfo.txt", _get_country_geoids),
     "region": ("admin1CodesASCII.txt", _get_admin_geoids),
     "departement": ("admin2Codes.txt", _get_admin_geoids),
 }
 
 
 def get_location_dict(
-        loc: str = "country",
+        loc: str = "pays",
         french_geonames: dict[str, str] = None
 ) -> dict[str, str]:
     """
@@ -192,25 +210,294 @@ def get_location_dict(
     return location_dict
 
 
-if __name__ == "__main__":
-    download_geonames()
-    country_dict = get_location_dict('countryInfo.txt')
+def create_database(conn: sqlite3.Connection = None) -> None:
+    """Crée la base de données"""
+    with _open_connection(conn) as (local_conn, cursor):
+        cursor.execute(
+            """
+            CREATE TABLE pays
+            (
+                code VARCHAR(20) PRIMARY KEY,
+                nom  VARCHAR(80)
+            )
+            """)
 
-# def create_database() -> bool:
-#     sql_connection = sqlite3.connect("geonames.db")
-#     cur = sql_connection.cursor()
-#
-#     cur.execute("""
-#                 CREATE TABLE IF NOT EXISTS locations
-#                 (
-#                     geonameid INTEGER PRIMARY KEY,
-#                     name VARCHAR(200),
-#                     latitude REAL,
-#                     longitude REAL,
-#                     country_code TEXT,
-#                     admin1 VARCHAR(20),
-#                     admin2 VARCHAR(80),
-#                     admin3 VARCHAR(20),
-#                     admin4 VARCHAR(20),
-#                 )
-#                 """)
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS regions
+            (
+                code_pays VARCHAR(20),
+                code      VARCHAR(20),
+                nom       VARCHAR(80),
+                PRIMARY KEY (code_pays, code)
+            )
+            """)
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS departements
+            (
+                code_pays    VARCHAR(20),
+                code_region  VARCHAR(20),
+                code         VARCHAR(20),
+                nom          VARCHAR(80),
+                PRIMARY KEY (code_pays, code_region, code)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS locations
+            (
+                geonameid   INTEGER PRIMARY KEY,
+                nom         VARCHAR (200),
+                code_dept   VARCHAR(20),
+                code_region VARCHAR(20),
+                code_pays   VARCHAR(20),
+                latitude    FLOAT,
+                longitude   FLOAT,
+                FOREIGN KEY (code_pays)
+                    REFERENCES pays(code),
+
+                FOREIGN KEY (code_pays, code_region)
+                    REFERENCES regions(code_pays, code),
+
+                FOREIGN KEY (code_pays, code_region, code_dept)
+                    REFERENCES departements(code_pays, code_region, code)
+            )
+            """
+        )
+        local_conn.commit()
+
+
+def fill_database(conn: sqlite3.Connection = None) -> None:
+    """
+    Remplit la base de données.
+    1. Récupère les dictionnaires (pays, région, département)
+    2. Pour chaque ligne de 'allCountries', l'ajoute à la db.
+    """
+    with _open_connection(conn) as (local_conn, cursor):
+        cursor.execute("""
+                       SELECT name
+                       FROM sqlite_master
+                       WHERE type = 'table'
+                         AND name = 'locations'
+                       """)
+        if cursor.fetchone() is None:
+            create_database(local_conn)
+
+        french_geonames = _get_french_names(
+            os.path.join(LOCAL_GEO_DIR, "alternateNamesV2.zip")
+        )
+        country_dict = get_location_dict("pays", french_geonames)
+        region_dict = get_location_dict("region", french_geonames)
+        dept_dict = get_location_dict("departement", french_geonames)
+        country_tuples = []
+        for country_code, country_name in country_dict.items():
+            country_tuples.append((country_code, country_name))
+        cursor.executemany(
+            """
+            INSERT INTO pays
+                (code, nom)
+            VALUES (?, ?)
+            """,
+            country_tuples,
+        )
+        local_conn.commit()
+        region_tuples = []
+        for region_code, region_name in region_dict.items():
+            country_code, region_code = region_code.split(".")
+            region_tuples.append((country_code, region_code, region_name))
+        cursor.executemany(
+            """
+            INSERT INTO regions
+                (code_pays, code, nom)
+            VALUES (?, ?, ?)
+            """,
+            region_tuples,
+        )
+        local_conn.commit()
+        dept_tuples = []
+        for dept_code, dept_name in dept_dict.items():
+            country_code, region_code, dept_code = dept_code.split(".")
+            dept_tuples.append(
+                (country_code, region_code, dept_code, dept_name)
+            )
+        cursor.executemany(
+            """
+            INSERT INTO departements
+                (code_pays, code_region, code, nom)
+            VALUES (?, ?, ?, ?)
+            """,
+            dept_tuples,
+        )
+        local_conn.commit()
+        del country_dict
+        del region_dict
+        del dept_dict
+        del country_tuples
+        del region_tuples
+        del dept_tuples
+
+        locs = []
+        with _open_zip_txt(os.path.join(LOCAL_GEO_DIR, "allCountries.zip"),
+                           "allCountries.txt") as rf:
+            for line in rf:
+                row = line.rstrip("\n").split("\t")
+                locs.append((
+                    french_geonames.get(row[ALLCOUNTRIES_COLS["geonameid"]],
+                                        row[ALLCOUNTRIES_COLS["name"]]),
+                    row[ALLCOUNTRIES_COLS["admin2_code"]],
+                    row[ALLCOUNTRIES_COLS["admin1_code"]],
+                    row[ALLCOUNTRIES_COLS["country_code"]],
+                    row[ALLCOUNTRIES_COLS["latitude"]],
+                    row[ALLCOUNTRIES_COLS["longitude"]]
+                ))
+                if len(locs) >= 10000:
+                    cursor.executemany(
+                        """
+                        INSERT INTO locations
+                        (nom,
+                         code_dept,
+                         code_region,
+                         code_pays,
+                         latitude,
+                         longitude)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        locs,
+                    )
+                    local_conn.commit()
+                    locs.clear()
+        if len(locs) > 0:  # last loop
+            cursor.executemany(
+                """
+                INSERT INTO locations
+                (nom,
+                 code_dept,
+                 code_region,
+                 code_pays,
+                 latitude,
+                 longitude)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                locs,
+            )
+            local_conn.commit()
+
+
+def create_index(conn: sqlite3.Connection = None) -> None:
+    """Fonction à part pour créer l'index de la base de données."""
+    ch_conn = conn is not None
+    local_conn = sqlite3.connect(LOCAL_DB) if conn is None else conn
+    cursor = local_conn.cursor()
+
+    cursor.execute(
+        "CREATE INDEX IF NOT EXISTS idx_locations_nom ON locations(nom)"
+    )
+
+    local_conn.commit()
+    if not ch_conn:
+        local_conn.close()
+
+
+def rebuild_database() -> None:
+    gconn = sqlite3.connect(LOCAL_DB)
+    create_database(gconn)
+    fill_database(gconn)
+    create_index(gconn)
+    gconn.close()
+
+
+def get_geoname(
+        name: str,
+        region: str = None,
+        department: str = None,
+        country: str = None,
+        conn: sqlite3.Connection = None
+) -> list[tuple[str, str, str, str, float, float]] | None:
+    """Récupère les informations d'un lieu dans la db."""
+    select = [
+        "SELECT l.*",
+        "FROM locations AS l",
+    ]
+    where = ["l.nom = ?"]
+    params = [name]
+
+    if country is not None:
+        select += [
+            "JOIN pays AS p",
+            "  ON p.code = l.code_pays",
+        ]
+        where.append("p.nom LIKE ?")
+        params.append(f"%{country}%")
+
+    if region is not None:
+        select += [
+            "JOIN regions AS r",
+            "  ON r.code_pays = l.code_pays",
+            " AND r.code = l.code_region",
+        ]
+        where.append("r.nom LIKE ?")
+        params.append(f"%{region}%")
+
+    if department is not None:
+        select += [
+            "JOIN departements AS d",
+            "  ON d.code_pays = l.code_pays",
+            " AND d.code_region = l.code_region",
+            " AND d.code = l.code_dept",
+        ]
+        where.append("d.nom LIKE ?")
+        params.append(f"%{department}%")
+
+    select.append("WHERE " + " AND ".join(where))
+
+    with _open_connection(conn) as (local_conn, cursor):
+        sql_data = cursor.execute("\n".join(select), params).fetchall()
+        return_data = []
+        for dat in sql_data:
+            code_dept = dat[2]
+            code_region = dat[3]
+            code_pays = dat[4]
+            pays = cursor.execute(
+                "SELECT nom FROM pays WHERE code = ?",
+                (code_pays,),
+            ).fetchone()
+            pays = pays[0] if pays else ""
+            region = cursor.execute(
+                """
+                SELECT nom
+                FROM regions
+                WHERE code_pays = ?
+                  AND code = ?
+                """,
+                (code_pays, code_region),
+            ).fetchone()
+            region = region[0] if region else ""
+            dept = cursor.execute(
+                """
+                SELECT nom
+                FROM departements
+                WHERE code_pays = ?
+                  AND code_region = ?
+                  AND code = ?
+                """,
+                (code_pays, code_region, code_dept),
+            ).fetchone()
+            dept = dept[0] if dept else ""
+
+            return_data.append({
+                'geonameid': dat[0],
+                'nom': dat[1],
+                'dept': dept,
+                'region': region,
+                'pays': pays,
+                'latitude': dat[5],
+                'longitude': dat[6],
+            })
+
+        return return_data
+
+

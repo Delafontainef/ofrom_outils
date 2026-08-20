@@ -1,14 +1,16 @@
 import io
 import os
+import sqlite3
 import tempfile
 import unittest
 import zipfile
 from unittest.mock import MagicMock, patch
 
 from ofrom_outils.meta.meta_geonames import (
-    _open_zip_txt, _download_file, download_geonames,
-    _get_admin_geoids,
-    _get_country_geoids, _get_french_names, get_location_dict
+    _open_zip_txt, _open_connection, _download_file, download_geonames,
+    _get_admin_geoids, _get_country_geoids, _get_french_names,
+    get_location_dict, create_database, fill_database, create_index,
+    rebuild_database
 )
 
 MOCK_GEONAME: str = "https://example.com/"
@@ -202,9 +204,9 @@ class GetCountryDict(unittest.TestCase):
             "alternateNamesV2.txt"
         )
 
-    @patch("ofrom_outils.meta.meta_geonames.os.path.isfile",
-           return_value=False)
+    @patch("ofrom_outils.meta.meta_geonames.os.path.isfile")
     def test_get_french_names_missing(self, mock_isfile):
+        mock_isfile.return_value = False
         self.assertEqual(
             _get_french_names("missing.zip"),
             {}
@@ -228,7 +230,7 @@ class GetCountryDict(unittest.TestCase):
 
         with patch.dict(
                 "ofrom_outils.meta.meta_geonames.LOCATION_FUNC",
-                {"country": ("countryInfo.txt", mock_loc)}
+                {"pays": ("countryInfo.txt", mock_loc)}
         ):
             result = get_location_dict()
 
@@ -256,6 +258,213 @@ class GetCountryDict(unittest.TestCase):
             "FR.42": "",
         })
 
+
+class TestOpenConnection(unittest.TestCase):
+
+    def test_uses_provided_connection(self):
+        conn = sqlite3.connect(":memory:")
+
+        with _open_connection(conn) as (local_conn, cursor):
+            self.assertIs(local_conn, conn)
+            self.assertIsInstance(cursor, sqlite3.Cursor)
+
+        conn.execute("SELECT 1")
+        conn.close()
+
+    @patch("ofrom_outils.meta.meta_geonames.sqlite3.connect")
+    def test_creates_and_closes_connection(self, mock_connect):
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        mock_cursor = MagicMock(spec=sqlite3.Cursor)
+
+        mock_conn.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_conn
+
+        with _open_connection() as (local_conn, cursor):
+            self.assertIs(local_conn, mock_conn)
+            self.assertIs(cursor, mock_cursor)
+
+        mock_connect.assert_called_once()
+        mock_conn.close.assert_called_once_with()
+
+
+@patch.dict("ofrom_outils.meta.meta_geonames.ALLCOUNTRIES_COLS", {
+    "geonameid": 0,
+    "name": 1,
+    "admin1_code": 2,
+    "admin2_code": 3,
+    "country_code": 4,
+    "latitude": 5,
+    "longitude": 6,
+}, clear=True)
+class TestDatabase(unittest.TestCase):
+
+    def setUp(self):
+        self.conn = sqlite3.connect(":memory:")
+
+    def tearDown(self):
+        self.conn.close()
+
+    def test_create_database_tables_exists(self):
+        create_database(self.conn)
+        cursor = self.conn.cursor()
+        cursor.execute("""
+                       SELECT name
+                       FROM sqlite_master
+                       WHERE type = 'table'
+                         AND name IN (
+                                      'locations',
+                                      'pays',
+                                      'regions',
+                                      'departements'
+                           )
+                       """)
+        tables = {row[0] for row in cursor.fetchall()}
+        self.assertEqual(
+            tables,
+            {"locations", "pays", "regions", "departements"},
+        )
+
+    def test_create_database_columns(self):
+        create_database(self.conn)
+        cursor = self.conn.cursor()
+        cursor.execute("PRAGMA table_info(locations)")
+
+        columns = [row[1] for row in cursor.fetchall()]
+
+        self.assertEqual(
+            columns,
+            [
+                "geonameid",
+                "nom",
+                "code_dept",
+                "code_region",
+                "code_pays",
+                "latitude",
+                "longitude",
+            ],
+        )
+
+    def test_create_index(self):
+        create_database(self.conn)
+        create_index(self.conn)
+        cursor = self.conn.cursor()
+        cursor.execute("""
+                       SELECT name
+                       FROM sqlite_master
+                       WHERE type = 'index'
+                         AND name = 'idx_locations_nom'
+                       """)
+
+        self.assertIsNotNone(cursor.fetchone())
+
+    @patch("ofrom_outils.meta.meta_geonames.create_database",
+           wraps=create_database)
+    @patch("ofrom_outils.meta.meta_geonames.get_location_dict")
+    @patch("ofrom_outils.meta.meta_geonames._open_zip_txt")
+    def test_fill_database(self, mock_zip, mock_dict, mock_create):
+        mock_dict.side_effect = [
+            {"FR": "France"},
+            {"FR.11": "Île-de-France"},
+            {"FR.11.75": "Paris"},
+        ]
+
+        mock_zip.return_value.__enter__.return_value = [
+            "10000024\tParis\t11\t75\tFR\t48.8566\t2.3522\n"
+        ]
+
+        fill_database(self.conn)
+
+        row = self.conn.execute(
+            "SELECT nom, code_pays, latitude, longitude "
+            "FROM locations"
+        ).fetchone()
+        country = self.conn.execute(
+            "SELECT nom "
+            "FROM pays"
+        ).fetchone()
+        region = self.conn.execute(
+            "SELECT nom "
+            "FROM regions"
+        ).fetchone()
+        dept = self.conn.execute(
+            "SELECT nom "
+            "FROM departements"
+        ).fetchone()
+        print(region)
+        print(dept)
+
+        self.assertEqual(
+            row,
+            ("Paris", "FR", 48.8566, 2.3522),
+        )
+        self.assertEqual(
+            country,
+            ('France',)
+        )
+        self.assertEqual(
+            region,
+            ("Île-de-France",)
+        )
+        self.assertEqual(
+            dept,
+            ("Paris",)
+        )
+        mock_create.assert_called_once_with(self.conn)
+
+    @patch("ofrom_outils.meta.meta_geonames.create_database",
+           wraps=create_database)
+    @patch("ofrom_outils.meta.meta_geonames.get_location_dict")
+    @patch("ofrom_outils.meta.meta_geonames._open_zip_txt")
+    def test_fill_database_no_creation(self, mock_zip, mock_dict, mock_create):
+        mock_dict.side_effect = [
+            {"FR": "France"},
+            {"FR.11": "Île-de-France"},
+            {"FR.11.75": "Paris"},
+        ]
+
+        mock_zip.return_value.__enter__.return_value = [
+            "10000024\tParis\t11\t75\tFR\t48.8566\t2.3522\n"
+        ]
+        create_database(self.conn)
+        mock_create.reset_mock()
+        fill_database(self.conn)
+
+        row = self.conn.execute(
+            "SELECT nom, code_dept, latitude, longitude "
+            "FROM locations"
+        ).fetchone()
+
+        self.assertEqual(
+            row,
+            ("Paris", "75", 48.8566, 2.3522),
+        )
+        mock_create.assert_not_called()
+
+    @patch("ofrom_outils.meta.meta_geonames.LOCAL_DB")
+    @patch("ofrom_outils.meta.meta_geonames.sqlite3.connect")
+    @patch("ofrom_outils.meta.meta_geonames.create_database")
+    @patch("ofrom_outils.meta.meta_geonames.fill_database")
+    @patch("ofrom_outils.meta.meta_geonames.create_index")
+    def test_rebuild_database(
+            self,
+            mock_index,
+            mock_fill,
+            mock_create,
+            mock_connect,
+            mock_local_db
+    ):
+        mock_conn = MagicMock()
+        mock_connect.return_value = mock_conn
+
+        rebuild_database()
+
+        mock_connect.assert_called_once_with(mock_local_db)
+        mock_create.assert_called_once_with(mock_conn)
+        mock_fill.assert_called_once_with(mock_conn)
+        mock_index.assert_called_once_with(mock_conn)
+        mock_conn.close.assert_called_once()
+
+    ## LACKS 'get_geoname' test
 
 if __name__ == '__main__':
     unittest.main()
