@@ -19,6 +19,7 @@ ofrom_outils/pos/
 
 # Parties trop lourdes ou privées
 ofrom_outils/pr/
+ofrom_outils/meta/geonames/
 build/
 maj/
 programmes/Dismo/
