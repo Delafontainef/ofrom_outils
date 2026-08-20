@@ -79,9 +79,10 @@ class TestSetupConv(unittest.TestCase):
 @patch("ofrom_outils.audio.audio.tempfile")
 @patch("ofrom_outils.audio.audio.subprocess")
 @patch("ofrom_outils.audio.audio.os")
+@patch("ofrom_outils.audio.audio.shutil")
 class TestSubp(unittest.TestCase):
 
-    def test_subp(self, mock_os, mock_sproc, mock_tempfile):
+    def test_subp(self, mock_shutil, mock_os, mock_sproc, mock_tempfile):
         p1 = os.path.join("path", "file.wav")
         p2 = os.path.join("path", "file2.wav")
         mock_os.path.exists.return_value = True
@@ -95,11 +96,11 @@ class TestSubp(unittest.TestCase):
         mock_os.remove.assert_called_once_with(p1)
         mock_sproc.run.assert_called_once_with(
             [p1], shell=False, stdout=None, stderr=None)
-        mock_os.replace.assert_called_once_with(p1, p2)
+        mock_shutil.move.assert_called_once_with(p1, p2)
         mock_tempfile.NamedTemporaryFile.assert_called_once_with(delete=False,
                                                                  suffix=".wav")
 
-    def test_subp_rem(self, mock_os, mock_sproc, mock_tempfile):
+    def test_subp_rem(self, mock_shutil, mock_os, mock_sproc, mock_tempfile):
         p1 = os.path.join("path", "file.mp3")
         p2 = os.path.join("path", "file2.wav")
         mock_os.path.exists.return_value = True
@@ -113,7 +114,7 @@ class TestSubp(unittest.TestCase):
         assert mock_os.remove.call_count == 2
         mock_sproc.run.assert_called_once_with(
             [p1], shell=False, stdout=None, stderr=None)
-        mock_os.replace.assert_called_once_with(p1, p2)
+        mock_shutil.move.assert_called_once_with(p1, p2)
         mock_tempfile.NamedTemporaryFile.assert_called_once_with(delete=False,
                                                                  suffix=".wav")
 
@@ -320,6 +321,7 @@ class TestToM4a(unittest.TestCase):
         args = args[3][-6:]
         self.assertEqual(args, ['my_file.ogg', '-vn', '-ac', 1, '-ar', 44100])
 
+
 @patch("ofrom_outils.audio.audio.D_F")
 @patch("ofrom_outils.audio.audio.check")
 @patch("ofrom_outils.audio.audio.iter_all")
@@ -342,18 +344,26 @@ class TestAllAudioConvert(unittest.TestCase):
         all_audio_convert("a_path", "", verbose=False)
         assert mock_wav.call_count == 3
         args, _ = mock_wav.call_args
-        self.assertEqual(args, ('path_fi3.wav', 'fi3.wav', False, False))
+        self.assertEqual(args, (
+            'path_fi3.wav',
+            os.path.join('a_path', 'fi3.wav'),
+            False,
+            False)
+                         )
+
 
 class TestArgs(unittest.TestCase):
 
     def test_args(self):
-        func, d_args = args(["buff", "convert", "a_path", "another_path", "m4a"])
+        func, d_args = args(
+            ["buff", "convert", "a_path", "another_path", "m4a"])
         self.assertEqual(func, all_audio_convert)
         self.assertEqual(d_args, {
             'path': "a_path", 'npath': "another_path",
             'typ': 'm4a',
             'rem': False, 'ch_all': False
         })
+
 
 if __name__ == "__main__":
     unittest.main()
