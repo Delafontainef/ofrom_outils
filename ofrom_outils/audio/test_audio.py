@@ -346,7 +346,7 @@ class TestAllAudioConvert(unittest.TestCase):
         args, _ = mock_wav.call_args
         self.assertEqual(args, (
             'path_fi3.wav',
-            'a_path\\fi3.wav',
+            os.path.join('a_path', 'fi3.wav'),
             False,
             False)
                          )
