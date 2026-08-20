@@ -35,6 +35,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import shutil
 
 from ofrom_outils.common import CORE, FFMPEG, kwarg, iter_all
 from ofrom_outils.common_types import (Callable, Path)
@@ -186,7 +187,7 @@ def subp(
             argsa,
             shell=False, stdout=None, stderr=None
         )
-        os.replace(tmp, npath)
+        shutil.move(tmp, npath)
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -383,12 +384,11 @@ def all_audio_convert(
     """
     path = CORE if not path else path
     npath = path if not npath else npath
+    out_tmp: str = os.path.dirname(npath) if os.path.isfile(npath) else npath
     for fi, ext, file, path in iter_all(path, l_ext=[]):
         ch, fi, ext, file, path = check(fi, ext, file, path)  # conditions
         if not ch:
             continue
-            # main task
-        out_tmp: str = os.path.dirname(npath)
         f, n_ext = D_F.get(typ)
         log(path, "\n", verbose)
         f(path, os.path.join(out_tmp, fi + n_ext), rem, ch_all)
