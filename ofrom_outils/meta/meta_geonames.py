@@ -5,6 +5,7 @@ licensed under CC BY 4.0 — www.geonames.org
 """
 
 import io
+import math
 import os
 import sqlite3
 import zipfile
@@ -69,6 +70,23 @@ def _open_zip_txt(zip_path: Path, filename: str) -> Iterator[io.TextIOWrapper]:
                 yield rf
 
 
+def _iter_geo(zip_path: Path, filename: str) -> Iterator[dict[str, str]]:
+    """
+    Pour itérer sur un fichier 'zip' (contenant un 'txt') ligne par ligne.
+    Transforme chaque ligne en dictionnaire.
+    """
+    select_cols = {
+        'allCountries.txt': ALLCOUNTRIES_COLS,
+        'alternateNamesV2.txt': ALTNAMES_COLS,
+    }
+    cols: dict[str, int] = select_cols[filename]
+
+    with _open_zip_txt(zip_path, filename) as rf:
+        for line in rf:
+            split_line = line.rstrip("\n").split("\t")
+            yield {name: split_line[i] for name, i in cols.items()}
+
+
 @contextmanager
 def _open_connection(
         conn: sqlite3.Connection | None = None
@@ -92,7 +110,8 @@ def _get_french_names(alternate_file: Path) -> dict[str, str]:
     with _open_zip_txt(alternate_file, "alternateNamesV2.txt") as rf:
         for line in rf:
             row = line.rstrip("\n").split("\t")
-            if row[ALTNAMES_COLS["isolanguage"]] != 'fr':
+            if (row[ALTNAMES_COLS["isolanguage"]] != 'fr' or
+                row[ALTNAMES_COLS["isPreferredName"]]) != '1':
                 continue
             french_geonames[row[ALTNAMES_COLS["geonameid"]]] = \
                 row[ALTNAMES_COLS["alternate_name"]]
@@ -215,59 +234,65 @@ def create_database(conn: sqlite3.Connection = None) -> None:
     with _open_connection(conn) as (local_conn, cursor):
         cursor.execute(
             """
-            CREATE TABLE pays
-            (
-                code VARCHAR(20) PRIMARY KEY,
-                nom  VARCHAR(80)
-            )
-            """)
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS regions
-            (
-                code_pays VARCHAR(20),
-                code      VARCHAR(20),
-                nom       VARCHAR(80),
-                PRIMARY KEY (code_pays, code)
-            )
-            """)
-
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS departements
-            (
-                code_pays    VARCHAR(20),
-                code_region  VARCHAR(20),
-                code         VARCHAR(20),
-                nom          VARCHAR(80),
-                PRIMARY KEY (code_pays, code_region, code)
-            )
-            """
-        )
-
-        cursor.execute(
-            """
             CREATE TABLE IF NOT EXISTS locations
             (
                 geonameid   INTEGER PRIMARY KEY,
-                nom         VARCHAR (200),
-                code_dept   VARCHAR(20),
-                code_region VARCHAR(20),
-                code_pays   VARCHAR(20),
+                nom         VARCHAR(200),
+                departement VARCHAR(20),
+                region      VARCHAR(20),
+                pays        VARCHAR(20),
                 latitude    FLOAT,
                 longitude   FLOAT,
-                FOREIGN KEY (code_pays)
-                    REFERENCES pays(code),
-
-                FOREIGN KEY (code_pays, code_region)
-                    REFERENCES regions(code_pays, code),
-
-                FOREIGN KEY (code_pays, code_region, code_dept)
-                    REFERENCES departements(code_pays, code_region, code)
+                score       INTEGER NOT NULL DEFAULT 0
             )
             """
         )
+        local_conn.commit()
+
+
+def _score_geonames(row) -> float:
+    feature_class = row['feature_class']
+    feature_code = row['feature_code']
+    pop = int(row['population'])
+    if feature_class != 'P' or pop <= 0:
+        return -10
+    feature_score = {
+        "PPLC": 100,  # capital
+        "PPLA": 90,  # first-order admin seat
+        "PPLA2": 80,
+        "PPLA3": 70,
+        "PPLA4": 60,
+        "PPL": 50,  # populated place
+    }
+    return round((feature_score.get(feature_code, 40)
+                  + math.log10(pop + 1)) * 10)
+
+
+def _vacuum_database(conn: sqlite3.Connection = None) -> None:
+    """
+    Nettoie la base de données.
+    Retire les doublons régionaux, puis 'vacuum' l'ensemble.
+    """
+    with _open_connection(conn) as (local_conn, cursor):
+        cursor.execute(
+            """
+            DELETE FROM locations
+            WHERE geonameid IN (
+                SELECT geonameid
+                FROM (
+                         SELECT geonameid,
+                                ROW_NUMBER() OVER (
+                            PARTITION BY nom, departement, region, pays
+                            ORDER BY score DESC
+                        ) AS rn
+                         FROM locations
+                     )
+                WHERE rn > 1
+            )
+            """
+        )
+        local_conn.commit()
+        cursor.execute("VACUUM")
         local_conn.commit()
 
 
@@ -277,6 +302,17 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
     1. Récupère les dictionnaires (pays, région, département)
     2. Pour chaque ligne de 'allCountries', l'ajoute à la db.
     """
+    sql = """
+          INSERT INTO locations
+              (nom, departement, region, pays, latitude, longitude, score)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          """
+    french_geonames = _get_french_names(
+        os.path.join(LOCAL_GEO_DIR, "alternateNamesV2.zip")
+    )
+    country_dict = get_location_dict("pays", french_geonames)
+    region_dict = get_location_dict("region", french_geonames)
+    dept_dict = get_location_dict("departement", french_geonames)
     with _open_connection(conn) as (local_conn, cursor):
         cursor.execute("""
                        SELECT name
@@ -287,104 +323,36 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
         if cursor.fetchone() is None:
             create_database(local_conn)
 
-        french_geonames = _get_french_names(
-            os.path.join(LOCAL_GEO_DIR, "alternateNamesV2.zip")
-        )
-        country_dict = get_location_dict("pays", french_geonames)
-        region_dict = get_location_dict("region", french_geonames)
-        dept_dict = get_location_dict("departement", french_geonames)
-        country_tuples = []
-        for country_code, country_name in country_dict.items():
-            country_tuples.append((country_code, country_name))
-        cursor.executemany(
-            """
-            INSERT INTO pays
-                (code, nom)
-            VALUES (?, ?)
-            """,
-            country_tuples,
-        )
-        local_conn.commit()
-        region_tuples = []
-        for region_code, region_name in region_dict.items():
-            country_code, region_code = region_code.split(".")
-            region_tuples.append((country_code, region_code, region_name))
-        cursor.executemany(
-            """
-            INSERT INTO regions
-                (code_pays, code, nom)
-            VALUES (?, ?, ?)
-            """,
-            region_tuples,
-        )
-        local_conn.commit()
-        dept_tuples = []
-        for dept_code, dept_name in dept_dict.items():
-            country_code, region_code, dept_code = dept_code.split(".")
-            dept_tuples.append(
-                (country_code, region_code, dept_code, dept_name)
-            )
-        cursor.executemany(
-            """
-            INSERT INTO departements
-                (code_pays, code_region, code, nom)
-            VALUES (?, ?, ?, ?)
-            """,
-            dept_tuples,
-        )
-        local_conn.commit()
-        del country_dict
-        del region_dict
-        del dept_dict
-        del country_tuples
-        del region_tuples
-        del dept_tuples
-
         locs = []
-        with _open_zip_txt(os.path.join(LOCAL_GEO_DIR, "allCountries.zip"),
-                           "allCountries.txt") as rf:
-            for line in rf:
-                row = line.rstrip("\n").split("\t")
-                locs.append((
-                    french_geonames.get(row[ALLCOUNTRIES_COLS["geonameid"]],
-                                        row[ALLCOUNTRIES_COLS["name"]]),
-                    row[ALLCOUNTRIES_COLS["admin2_code"]],
-                    row[ALLCOUNTRIES_COLS["admin1_code"]],
-                    row[ALLCOUNTRIES_COLS["country_code"]],
-                    row[ALLCOUNTRIES_COLS["latitude"]],
-                    row[ALLCOUNTRIES_COLS["longitude"]]
-                ))
-                if len(locs) >= 10000:
-                    cursor.executemany(
-                        """
-                        INSERT INTO locations
-                        (nom,
-                         code_dept,
-                         code_region,
-                         code_pays,
-                         latitude,
-                         longitude)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                        """,
-                        locs,
-                    )
-                    local_conn.commit()
-                    locs.clear()
+        local_conn.execute("PRAGMA journal_mode = MEMORY")
+        for row in _iter_geo(os.path.join(LOCAL_GEO_DIR, "allCountries.zip"),
+                             "allCountries.txt"):
+            score = _score_geonames(row)
+            if score < 0:
+                continue
+            code_d = row["admin2_code"]
+            code_r = row["admin1_code"]
+            code_c = row["country_code"]
+            code_r = ".".join([code_c, code_r]) if code_r else ""
+            code_d = ".".join([code_r, code_d]) if code_r and code_c else ""
+            locs.append((
+                french_geonames.get(row["geonameid"], row["name"]),
+                dept_dict.get(code_d, ""),
+                region_dict.get(code_r, ""),
+                country_dict.get(code_c, ""),
+                row["latitude"],
+                row["longitude"],
+                score
+            ))
+            if len(locs) >= 10000:
+                cursor.executemany(sql, locs, )
+                local_conn.commit()
+                locs.clear()
         if len(locs) > 0:  # last loop
-            cursor.executemany(
-                """
-                INSERT INTO locations
-                (nom,
-                 code_dept,
-                 code_region,
-                 code_pays,
-                 latitude,
-                 longitude)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                locs,
-            )
+            cursor.executemany(sql, locs, )
             local_conn.commit()
+
+    _vacuum_database(conn)
 
 
 def create_index(conn: sqlite3.Connection = None) -> None:
@@ -410,94 +378,30 @@ def rebuild_database() -> None:
     gconn.close()
 
 
-def get_geoname(
+def get_raw_geoname(
         name: str,
-        region: str = None,
         department: str = None,
+        region: str = None,
         country: str = None,
         conn: sqlite3.Connection = None
 ) -> list[tuple[str, str, str, str, float, float]] | None:
     """Récupère les informations d'un lieu dans la db."""
     select = [
-        "SELECT l.*",
-        "FROM locations AS l",
+        "SELECT *",
+        "FROM locations",
+        "WHERE nom = ?"
     ]
-    where = ["l.nom = ?"]
     params = [name]
-
-    if country is not None:
-        select += [
-            "JOIN pays AS p",
-            "  ON p.code = l.code_pays",
-        ]
-        where.append("p.nom LIKE ?")
-        params.append(f"%{country}%")
-
-    if region is not None:
-        select += [
-            "JOIN regions AS r",
-            "  ON r.code_pays = l.code_pays",
-            " AND r.code = l.code_region",
-        ]
-        where.append("r.nom LIKE ?")
-        params.append(f"%{region}%")
-
-    if department is not None:
-        select += [
-            "JOIN departements AS d",
-            "  ON d.code_pays = l.code_pays",
-            " AND d.code_region = l.code_region",
-            " AND d.code = l.code_dept",
-        ]
-        where.append("d.nom LIKE ?")
-        params.append(f"%{department}%")
-
-    select.append("WHERE " + " AND ".join(where))
+    for pname, pval in [
+        ("departement", department),
+        ("region", region),
+        ("pays", country)
+    ]:
+        if pval is not None:
+            select += [f"AND {pname} = ?"]
+            params += [pval]
 
     with _open_connection(conn) as (local_conn, cursor):
-        sql_data = cursor.execute("\n".join(select), params).fetchall()
-        return_data = []
-        for dat in sql_data:
-            code_dept = dat[2]
-            code_region = dat[3]
-            code_pays = dat[4]
-            pays = cursor.execute(
-                "SELECT nom FROM pays WHERE code = ?",
-                (code_pays,),
-            ).fetchone()
-            pays = pays[0] if pays else ""
-            region = cursor.execute(
-                """
-                SELECT nom
-                FROM regions
-                WHERE code_pays = ?
-                  AND code = ?
-                """,
-                (code_pays, code_region),
-            ).fetchone()
-            region = region[0] if region else ""
-            dept = cursor.execute(
-                """
-                SELECT nom
-                FROM departements
-                WHERE code_pays = ?
-                  AND code_region = ?
-                  AND code = ?
-                """,
-                (code_pays, code_region, code_dept),
-            ).fetchone()
-            dept = dept[0] if dept else ""
-
-            return_data.append({
-                'geonameid': dat[0],
-                'nom': dat[1],
-                'dept': dept,
-                'region': region,
-                'pays': pays,
-                'latitude': dat[5],
-                'longitude': dat[6],
-            })
-
-        return return_data
-
+        db_data = cursor.execute("\n".join(select), params).fetchall()
+        return db_data
 
