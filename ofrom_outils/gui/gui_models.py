@@ -1,0 +1,41 @@
+import tkinter as tk
+from tkinter import ttk
+from typing import Any, Protocol, runtime_checkable
+from contextlib import AbstractContextManager
+
+
+@runtime_checkable
+class CorMenu(Protocol):
+    """Composant menu de l'interface."""
+
+    parent: tk.Misc
+
+
+@runtime_checkable
+class CorConsole(Protocol):
+    parent: tk.Misc
+
+    def activate(self) -> AbstractContextManager[None]:
+        ...
+
+    def mark(self, mark_name: str, mark: str) -> None:
+        ...
+
+    def clear(self, line: int, col: int) -> None:
+        ...
+
+    def write(self, txt: str, mode: str) -> None:
+        ...
+
+    def pyw(self, txt: str, mode: str) -> None:
+        ...
+
+class CorMain(Protocol):
+
+    menu: CorMenu
+    champ: ttk.Notebook
+    console: CorConsole
+    data: dict[str, Any]
+    ongl: list
+    actif: int
+

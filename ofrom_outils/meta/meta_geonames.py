@@ -370,12 +370,18 @@ def create_index(conn: sqlite3.Connection = None) -> None:
         local_conn.close()
 
 
-def rebuild_database() -> None:
+def rebuild_database(clear: bool = False) -> None:
     gconn = sqlite3.connect(LOCAL_DB)
     create_database(gconn)
     fill_database(gconn)
     create_index(gconn)
     gconn.close()
+    if clear:
+        for file in os.listdir(LOCAL_GEO_DIR):
+            path = os.path.join(LOCAL_GEO_DIR, file)
+            if os.path.isdir(path) or os.path.samefile(path, LOCAL_DB):
+                continue
+            os.remove(path)
 
 
 def get_raw_geoname(
