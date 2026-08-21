@@ -30,6 +30,7 @@ class CorConsole(Protocol):
     def pyw(self, txt: str, mode: str) -> None:
         ...
 
+@runtime_checkable
 class CorMain(Protocol):
 
     menu: CorMenu
@@ -39,3 +40,8 @@ class CorMain(Protocol):
     ongl: list
     actif: int
 
+    def _load_config(self) -> None:
+        ...
+
+    def _save_config(self, event: tk.Event) -> None:
+        ...

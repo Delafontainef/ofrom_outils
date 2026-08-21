@@ -2,6 +2,10 @@ import tkinter as tk
 from contextlib import contextmanager
 from tkinter import ttk
 
+import os
+import json
+from ofrom_outils.common import DATA
+
 
 class CorMenu(tk.Menu):
     """Composant menu de l'interface."""
@@ -117,14 +121,39 @@ class CorMain(tk.Tk):
         self.console = CorConsole(self)  # Messages à l'utilisateur
         self.data = {}  # Données générales
         self.ongl = []  # Liste d'onglets
-        self.actif = 0  # Onglet actif
 
         self.config(menu=self.menu)
         self.champ.grid(row=0, sticky='nwse')
         self.console.grid(row=1, sticky='nwse', padx=2, pady=2)
         self.columnconfigure(0, weight=1)
 
+        self.setup()
+        self.bind("<Destroy>", self._save_config)
 
+    def _load_config(self):
+        """Chargement du fichier de configuration."""
+        config_file = os.path.join(DATA, "ofrom_gui_config.json")
+        if not os.path.isfile(config_file):
+            self.data = {
+                "taille": [720, 480],
+                "save_file": "",
+                "actif": -1
+            }
+            return
+        with open(config_file, "r", encoding="utf-8") as rf:
+            self.data = json.load(rf)
+
+    def _save_config(self, event: tk.Event = None) -> None:
+        """Sauvegarde du fichier de configuration."""
+        if event and event.widget is not self:
+            return
+        config_file = os.path.join(DATA, "ofrom_gui_config.json")
+        with open(config_file, "w", encoding="utf-8") as wf:
+            json.dump(self.data, wf, indent=4)
+
+    def setup(self):
+        """Mise en place des données / onglets."""
+        self._load_config()
 
 
 if __name__ == "__main__":

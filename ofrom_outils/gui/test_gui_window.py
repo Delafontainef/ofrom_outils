@@ -1,8 +1,14 @@
 import tkinter as tk
 import unittest
+from unittest.mock import patch
+
 from ofrom_outils.gui.gui_window import (
-    CorMenu, CorConsole
+    CorMenu, CorConsole, CorMain
 )
+
+import json
+import os
+import tempfile
 
 class TestCorMenu(unittest.TestCase):
 
@@ -91,6 +97,72 @@ class TestCorConsole(unittest.TestCase):
 
         self.assertEqual(self.get_text(), "abcXYZ")
 
+
+class TestCorMain(unittest.TestCase):
+
+    def setUp(self):
+        self.gui = CorMain()
+        self.tmp = tempfile.TemporaryDirectory()
+
+        self.data_patch = patch(
+            "ofrom_outils.gui.gui_window.DATA",
+            self.tmp.name
+        )
+        self.data_patch.start()
+
+    def tearDown(self):
+        self.data_patch.stop()
+        self.tmp.cleanup()
+        self.gui.destroy()
+
+    def test_load_config_default(self):
+        self.gui._load_config()
+
+        self.assertEqual(
+            self.gui.data,
+            {
+                "taille": [720, 480],
+                "save_file": "",
+                "actif": -1
+            }
+        )
+
+    def test_load_config_exists(self):
+        config = {
+            "taille": [1000, 700],
+            "save_file": "test.txt",
+            "actif": 2
+        }
+        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+
+        with open(path, "w", encoding="utf-8") as wf:
+            json.dump(config, wf)
+        self.gui._load_config()
+
+        self.assertEqual(self.gui.data, config)
+
+    def test_save_config(self):
+        self.gui.data = {
+            "taille": [800, 600],
+            "save_file": "foo.txt",
+            "actif": 1
+        }
+        self.gui._save_config()
+
+        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        with open(path, "r", encoding="utf-8") as rf:
+            saved = json.load(rf)
+
+        self.assertEqual(saved, self.gui.data)
+
+    def test_save_config_ignores(self):
+        self.gui.data = {"test": 1}
+        event = tk.Event()
+        event.widget = tk.Frame(self.gui) # different widget destroyed
+        self.gui._save_config(event)
+
+        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        self.assertFalse(os.path.exists(path))
 
 if __name__ == "__main__":
     unittest.main()
