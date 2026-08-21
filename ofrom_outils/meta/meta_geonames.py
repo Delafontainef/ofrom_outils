@@ -13,12 +13,11 @@ from contextlib import contextmanager
 
 import requests
 
+from ofrom_outils.common import DATA
 from ofrom_outils.common_types import Path, Iterator, Callable
 
 GEONAME: str = "https://download.geonames.org/export/dump/"
-META_HOME: Path = os.path.abspath(os.path.dirname(__file__))
-LOCAL_GEO_DIR: Path = os.path.join(META_HOME, "geonames")
-LOCAL_DB: Path = os.path.join(LOCAL_GEO_DIR, "geonames.db")
+LOCAL_DB: Path = os.path.join(DATA, "geonames.db")
 
 ALLCOUNTRIES_COLS: dict[str, int] = {
     "geonameid": 0,
@@ -143,8 +142,8 @@ def download_geonames(
     Télécharge les fichiers de GeoNames.
     Retourne la liste des chemins
     """
-    if not os.path.isdir(LOCAL_GEO_DIR):
-        os.mkdir(LOCAL_GEO_DIR)
+    if not os.path.isdir(DATA):
+        os.mkdir(DATA)
     if list_files is None:  # default values
         list_files = [
             "allCountries.zip",
@@ -156,7 +155,7 @@ def download_geonames(
     list_paths: list[Path] = []
     for i, file in enumerate(list_files):
         geo_path = os.path.join(GEONAME, file)
-        local_path = os.path.join(LOCAL_GEO_DIR, file)
+        local_path = os.path.join(DATA, file)
         _download_file(geo_path, local_path, replace)
         list_paths.append(local_path)
     return list_paths
@@ -219,10 +218,9 @@ def get_location_dict(
         )
     if french_geonames is None:
         french_geonames = _get_french_names(
-            os.path.join(LOCAL_GEO_DIR,
-                         "alternateNamesV2.zip")
+            os.path.join(DATA, "alternateNamesV2.zip")
         )
-    geoids_dict = f(os.path.join(LOCAL_GEO_DIR, file))
+    geoids_dict = f(os.path.join(DATA, file))
     location_dict = {}
     for code, geoid in geoids_dict.items():
         location_dict[code] = french_geonames.get(geoid, "")
@@ -308,7 +306,7 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
           VALUES (?, ?, ?, ?, ?, ?, ?)
           """
     french_geonames = _get_french_names(
-        os.path.join(LOCAL_GEO_DIR, "alternateNamesV2.zip")
+        os.path.join(DATA, "alternateNamesV2.zip")
     )
     country_dict = get_location_dict("pays", french_geonames)
     region_dict = get_location_dict("region", french_geonames)
@@ -325,7 +323,7 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
 
         locs = []
         local_conn.execute("PRAGMA journal_mode = MEMORY")
-        for row in _iter_geo(os.path.join(LOCAL_GEO_DIR, "allCountries.zip"),
+        for row in _iter_geo(os.path.join(DATA, "allCountries.zip"),
                              "allCountries.txt"):
             score = _score_geonames(row)
             if score < 0:
@@ -377,8 +375,8 @@ def rebuild_database(clear: bool = False) -> None:
     create_index(gconn)
     gconn.close()
     if clear:
-        for file in os.listdir(LOCAL_GEO_DIR):
-            path = os.path.join(LOCAL_GEO_DIR, file)
+        for file in os.listdir(DATA):
+            path = os.path.join(DATA, file)
             if os.path.isdir(path) or os.path.samefile(path, LOCAL_DB):
                 continue
             os.remove(path)
@@ -411,3 +409,5 @@ def get_raw_geoname(
         db_data = cursor.execute("\n".join(select), params).fetchall()
         return db_data
 
+if "__main__" == __name__:
+    print(get_raw_geoname("Neuchâtel"))

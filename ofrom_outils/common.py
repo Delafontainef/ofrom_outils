@@ -32,6 +32,7 @@ ROOT        Path        racine du package.
 PRAAT       Path        dossier contenant Praat et ses scripts.
 FFMPEG      Path        dossier contenant ffmpeg.
 LOGS        Path        dossier où déposer les journaux.
+DATA        Path        dossier de config / bases de données
 CORE        Path        dossier des sous-corpus d'OFROM+.
 CORP        list<str>   noms de dossier des sous-corpus.
 META        Path        chemin du fichier de métadonnées.
@@ -45,7 +46,7 @@ COMMON_HOME: Path = os.path.abspath(os.path.dirname(__file__))
 # ROOT                  # déjà importé de 'private_paths'
 PRAAT: Path = os.path.join(ROOT, "programmes", "praat")
 FFMPEG: Path = os.path.join(ROOT, "programmes", "ffmpeg", "bin")
-LOGS: Path = os.path.join(ROOT, "ofrom_outils", "logs")
+DATA: Path = os.path.join(ROOT, "programmes", "_ofrom")
 PAUSE: str = "_"
 TRUNC: str = "-"
 SYMS: str = r"[_#%@]"
