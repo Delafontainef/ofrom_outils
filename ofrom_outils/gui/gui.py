@@ -16,7 +16,7 @@ from tkinter import filedialog
 from tkinter import ttk
 from typing import Generic, TypeVar
 
-from ofrom_outils.common import ROOT, DATA
+from ofrom_outils.common import DATA
 from ofrom_outils.common_types import Any, Path, Callable
 from ofrom_outils.gui.gui_models import CorMainData
 
@@ -33,7 +33,7 @@ class Pathfinder(tk.Frame):
     def __init__(
             self,
             parent: tk.Misc,
-            label: str,
+            label: str = "",
             path: Path = "",
     ):
         super().__init__(parent)
@@ -41,7 +41,8 @@ class Pathfinder(tk.Frame):
         self.value = tk.StringVar(self, self.format_path(path))
         self.entry = tk.Entry(
             self,
-            textvariable=self.value
+            textvariable=self.value,
+            state="readonly"
         )
         self.button = tk.Button(
             self,
@@ -52,17 +53,17 @@ class Pathfinder(tk.Frame):
     @staticmethod
     def format_path(npath: Path, endswith: str = "metadata.xlsx") -> Path:
         """Formatte le chemin pour l'affichage."""
-        if os.path.isdir(npath):
-            npath = npath if ROOT not in npath else npath.split(ROOT, 1)[1]
-            npath = npath[1:] if npath else "."
-        elif (not os.path.isfile(npath) or
-              (endswith and not npath.endswith(endswith))):
+        if (not os.path.isdir(npath)) and (not os.path.isfile(npath) or
+                                           (endswith and not npath.endswith(
+                                               endswith))):
             return ""
         return npath
 
-    def set_path(self, npath: Path) -> None:
+    def set(self, npath: Path) -> None:
         """Change le chemin."""
         self.value.set(self.format_path(npath))
+        self.entry.icursor(tk.END)
+        self.entry.xview_moveto(1.0)
 
     def set_path_as(self) -> None:
         """Change le chemin en demandant à l'utilisateur."""
@@ -73,7 +74,10 @@ class Pathfinder(tk.Frame):
             npath = tk.filedialog.askdirectory(title=label)
         if not npath:
             return
-        self.set_path(npath)
+        self.set(npath)
+
+    def get(self):
+        return self.format_path(self.value.get())
 
 
 CorOnglData = TypeVar("CorOnglData")
@@ -153,7 +157,7 @@ class CorMenu(tk.Menu):
 class CorConsole(tk.Frame):
     """Composant console de l'interface."""
 
-    def __init__(self, parent: tk.Misc = None):
+    def __init__(self, parent: tk.Misc | None = None):
         super().__init__(parent)
         self.parent = parent
 
@@ -200,11 +204,7 @@ class CorConsole(tk.Frame):
             if mode == "a":  # écrire à la fin
                 self.text.insert("end", txt)
             elif mode == "w":  # écrire au marqueur
-                l, c = map(int, self.text.index("w").split('.'))
                 self.text.delete("w", "end")
-                if c == 0 and l != 1:  # retours à la ligne
-                    self.text.insert("w", "\n")
-                    self.mark()
                 self.text.insert("w", txt)
             self.text.see("end")  # voir la fin du texte
 
@@ -284,7 +284,11 @@ class CorMain(tk.Tk):
 
         self._geometry_job = self.after(300, self._save_geometry, event)
 
-    def set_geometry(self, pos: list[int] = None, size: list[int] = None):
+    def set_geometry(
+            self,
+            pos: list[int] | None = None,
+            size: list[int] | None = None
+    ):
         assert self.data.pos is not None  # shut up IDEA
         assert self.data.size is not None
 
@@ -314,7 +318,7 @@ class CorMain(tk.Tk):
             update_dc(self.data, json_data)
         self.set_geometry()
 
-    def _save_config(self, event: tk.Event = None) -> None:
+    def _save_config(self, event: tk.Event | None = None) -> None:
         """Sauvegarde du fichier de configuration."""
         if event and event.widget is not self:
             return
@@ -339,7 +343,7 @@ class CorMain(tk.Tk):
         self.champ.select(self.ongl[i])
         self.active = i
 
-    def load(self, file_path: Path = None) -> None:
+    def load(self, file_path: Path | None = None) -> None:
         """Charge les onglets (depuis un fichier JSON)."""
         load_file = file_path if file_path is not None \
             else self.data.save_file
@@ -367,7 +371,7 @@ class CorMain(tk.Tk):
             self.load(f)
             self.data.save_file = f
 
-    def save(self, file_path: Path = None) -> None:
+    def save(self, file_path: Path | None = None) -> None:
         """Sauvegarde les onglets (dans un fichier JSON)."""
         save_file = file_path if file_path is not None \
             else self.data.save_file

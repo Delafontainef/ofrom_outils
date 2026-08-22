@@ -8,10 +8,10 @@ from tkinter import ttk
 from typing import Any
 from unittest.mock import patch, Mock, mock_open
 
-from ofrom_outils.gui.gui_models import CorMainData
 from ofrom_outils.gui.gui import (
-    update_dc, CorOngl, CorMenu, CorConsole, CorMain
+    update_dc, Pathfinder, CorOngl, CorMenu, CorConsole, CorMain
 )
+from ofrom_outils.gui.gui_models import CorMainData
 
 
 @dataclass
@@ -38,6 +38,75 @@ class TestUpdateDc(unittest.TestCase):
         self.assertEqual(obj.name, "new")
         self.assertEqual(obj.value, 42)
         self.assertFalse(hasattr(obj, "unknown"))
+
+
+class TestPathfinder(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+
+    def tearDown(self):
+        self.root.destroy()
+
+    @patch("ofrom_outils.gui.gui.os.path.isdir")
+    @patch("ofrom_outils.gui.gui.os.path.isfile")
+    def test_format_path_invalid(self, mock_isfile, mock_isdir):
+        mock_isdir.return_value = False
+        mock_isfile.return_value = False
+
+        self.assertEqual(Pathfinder.format_path("bad"), "")
+
+        mock_isfile.return_value = True
+        self.assertEqual(Pathfinder.format_path("file.txt"), "")
+        self.assertEqual(
+            Pathfinder.format_path("metadata.xlsx"),
+            "metadata.xlsx"
+        )
+
+        mock_isdir.return_value = True
+        self.assertEqual(Pathfinder.format_path("a/b/"), "a/b/")
+
+    def test_set_path(self):
+        pf = Pathfinder(self.root, "Test")
+        with patch.object(
+                Pathfinder,
+                "format_path",
+                return_value="foo"
+        ):
+            pf.set("bar")
+        self.assertEqual(pf.value.get(), "foo")
+
+    @patch("tkinter.filedialog.askdirectory")
+    @patch("tkinter.filedialog.askopenfilename")
+    def test_set_path_as_file(self, mock_afile, mock_adir):
+        pf = Pathfinder(self.root, "Métadonnées")
+        with patch.object(pf, "set") as mock_set:
+            mock_afile.return_value = "metadata.xlsx"
+            pf.set_path_as()
+            mock_set.assert_called_once_with("metadata.xlsx")
+            mock_set.reset_mock()
+            mock_afile.return_value = "some/path"
+            pf.set_path_as()
+            mock_set.assert_called_once_with("some/path")
+            mock_set.reset_mock()
+            mock_afile.return_value = ""
+            pf.set_path_as()
+            mock_set.assert_not_called()
+            pf.label.config(text="Test dirs")
+            mock_set.reset_mock()
+            mock_adir.return_value = "some/other"
+            pf.set_path_as()
+            mock_set.assert_called_once_with("some/other")
+
+    def test_get_path(self):
+        pf = Pathfinder(self.root, "")
+        pf.value.set("hello/world/")
+        value = pf.get()
+        self.assertEqual(value, "")
+        with patch.object(pf, "format_path", return_value="foo"):
+            value = pf.get()
+            self.assertEqual(value, "foo")
 
 
 class MockOngl(CorOngl[MockData]):
@@ -177,6 +246,23 @@ class TestCorConsole(unittest.TestCase):
         self.console.write("XYZ", "w")
 
         self.assertEqual(self.get_text(), "abcXYZ")
+
+    def test_pyw(self):
+        with (
+            patch.object(self.console, "write") as mock_write,
+            patch.object(self.console, "mark") as mock_mark,
+            patch.object(self.console, "clear") as mock_clear
+        ):
+            self.console.pyw("abc", "a")
+            mock_write.assert_called_once_with("abc", "a")
+            self.console.pyw("abc", "w")
+            self.console.pyw("abc", "d")
+            self.assertEqual(mock_write.call_count, 2)
+            self.console.pyw("", "mark")
+            mock_mark.assert_called_once_with()
+            self.console.pyw("", "clear")
+            mock_clear.assert_called_once_with()
+
 
 
 class TestCorMain(unittest.TestCase):
@@ -349,16 +435,12 @@ class TestCorMain(unittest.TestCase):
         ):
             self.gui._add_ongl(0, "test", {})
             self.gui._add_ongl(1, "test", {})
+            self.gui._add_ongl(2, "invalid", {})
 
         self.assertEqual(self.gui.active, 1)
-        self.assertEqual(
-            self.gui.champ.tabs(),
-            (
-                str(self.gui.ongl[0]),
-                str(self.gui.ongl[1]),
-                str(self.gui.plus_tab),
-            )
-        )
+        compare = self.gui.ongl + [self.gui.plus_tab]
+        for i, tab in enumerate(self.gui.champ.tabs()):
+            self.assertIs(self.gui.champ.nametowidget(tab), compare[i])
         tab = self.gui.champ.nametowidget(
             self.gui.champ.tabs()[self.gui.active]
         )
@@ -501,6 +583,22 @@ class TestCorMain(unittest.TestCase):
             mock_save.assert_called_once_with("test.json")
             self.assertEqual(self.gui.data.save_file, "test.json")
 
+    def test_setup(self):
+        self.gui = CorMain()
+        with (
+            patch.object(CorMain, "_load_config"),
+            patch("ofrom_outils.gui.gui.os.path.isfile") as mock_isfile,
+            patch.object(CorMain, "load") as mock_load,
+        ):
+            self.gui.data.save_file = "save.json"
+            mock_isfile.return_value = False
+            self.gui.setup()
+            mock_load.assert_not_called()
+            self.assertEqual(self.gui.data.save_file, "")
+            self.gui.data.save_file = "save.json"
+            mock_isfile.return_value = True
+            self.gui.setup()
+            mock_load.assert_called_with("save.json")
 
 if __name__ == "__main__":
     unittest.main()
