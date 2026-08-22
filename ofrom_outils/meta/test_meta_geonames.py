@@ -115,7 +115,7 @@ class TestDownloadFiles(unittest.TestCase):
     def test_download_from_geonames(self, mock_download):
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch(
-                    "ofrom_outils.meta.meta_geonames.LOCAL_GEO_DIR", temp_dir):
+                    "ofrom_outils.meta.meta_geonames.DATA", temp_dir):
                 result = download_geonames([
                     'allCountries.zip',
                     'alternateNamesV2.zip'

@@ -1,3 +1,11 @@
+""" 22.08.2026
+Contient les composants principaux pour l'interface.
+Cela inclut la fenêtre principale, la console et le menu,
+le modèle d'onglet et les composants génériques.
+
+Cela exclut un onglet spécifique qui doit être ajouté dans ONGL.
+"""
+
 import json
 import os
 import tkinter as tk
@@ -8,11 +16,9 @@ from tkinter import filedialog
 from tkinter import ttk
 from typing import Generic, TypeVar
 
-from ofrom_outils.common import DATA
+from ofrom_outils.common import ROOT, DATA
 from ofrom_outils.common_types import Any, Path, Callable
 from ofrom_outils.gui.gui_models import CorMainData
-
-CorOnglData = TypeVar("CorOnglData")
 
 
 def update_dc(obj: object, data: dict[str, Any]):
@@ -22,17 +28,70 @@ def update_dc(obj: object, data: dict[str, Any]):
             setattr(obj, key, value)
 
 
+class Pathfinder(tk.Frame):
+
+    def __init__(
+            self,
+            parent: tk.Misc,
+            label: str,
+            path: Path = "",
+    ):
+        super().__init__(parent)
+        self.label = tk.Label(self, text=label, anchor="w")
+        self.value = tk.StringVar(self, self.format_path(path))
+        self.entry = tk.Entry(
+            self,
+            textvariable=self.value
+        )
+        self.button = tk.Button(
+            self,
+            text="...",
+            command=self.set_path_as
+        )
+
+    @staticmethod
+    def format_path(npath: Path, endswith: str = "metadata.xlsx") -> Path:
+        """Formatte le chemin pour l'affichage."""
+        if os.path.isdir(npath):
+            npath = npath if ROOT not in npath else npath.split(ROOT, 1)[1]
+            npath = npath[1:] if npath else "."
+        elif (not os.path.isfile(npath) or
+              (endswith and not npath.endswith(endswith))):
+            return ""
+        return npath
+
+    def set_path(self, npath: Path) -> None:
+        """Change le chemin."""
+        self.value.set(self.format_path(npath))
+
+    def set_path_as(self) -> None:
+        """Change le chemin en demandant à l'utilisateur."""
+        label = self.label.cget("text")
+        if "métadonnées" in label.lower():  # recherche un fichier
+            npath = tk.filedialog.askopenfilename(title=label)
+        else:  # recherche un dossier
+            npath = tk.filedialog.askdirectory(title=label)
+        if not npath:
+            return
+        self.set_path(npath)
+
+
+CorOnglData = TypeVar("CorOnglData")
+
+
 class CorOngl(tk.Frame, Generic[CorOnglData], ABC):
     """Composant de base pour les onglets."""
 
     def __init__(
             self,
             parent: tk.Misc,
-            data: dict[str, Any]
+            data: dict[str, Any],
+            pyw: Callable[[str, str], None]
     ):
-        super().__init__()
+        super().__init__(parent)
         self.parent = parent
         self.data = self.fill_data(data)
+        self.pyw = pyw
 
     @abstractmethod
     def fill_data(self, data: dict[str, Any]) -> CorOnglData:
@@ -180,9 +239,9 @@ class CorMain(tk.Tk):
         self.panes = ttk.PanedWindow(self, orient="vertical")
         self.champ = ttk.Notebook(self.panes)
         self.console = CorConsole(self.panes)
-        self.data = CorMainData([0, 0], [720, 480], "", -1)
+        self.data = CorMainData([0, 0], [720, 480], 50, "", -1)
         self.ongl: list[CorOngl] = []
-        self.plus_tab = ttk.Frame(self.champ)
+        self.plus_tab = ttk.Frame(self.champ, height=100)
 
         self.config(menu=self.menu)
         self.champ.add(self.plus_tab, text="+")
@@ -204,6 +263,10 @@ class CorMain(tk.Tk):
         self.bind("<Control-s>", lambda event: self.save())
         self.champ.bind("<<NotebookTabChanged>>",
                         lambda event: None)
+        self.panes.bind(
+            "<ButtonRelease-1>",
+            lambda event: self._save_sash()
+        )
 
     def _save_geometry(self, event: tk.Event) -> None:
         """Sauvegarde la géométrie dans la configuration."""
@@ -230,6 +293,16 @@ class CorMain(tk.Tk):
         self.geometry(f"{size[0]}x{size[1]}+{pos[0]}+{pos[1]}")
         self.data.pos = pos
         self.data.size = size
+        self.after(
+            100,
+            self.panes.sashpos,
+            0,
+            self.data.sash_pos
+        )
+
+    def _save_sash(self):
+        """Sauvegarde la position du séparateur onglets / console."""
+        self.data.sash_pos = self.panes.sashpos(0)
 
     def _load_config(self):
         """Chargement du fichier de configuration."""
@@ -261,7 +334,7 @@ class CorMain(tk.Tk):
         if name not in ONGL:
             return
         i = max(0, min(i, len(self.ongl)))
-        self.ongl.insert(i, ONGL[name](self.champ, data))
+        self.ongl.insert(i, ONGL[name](self.champ, data, self.console.pyw))
         self.champ.insert(i, self.ongl[i], text=name)
         self.champ.select(self.ongl[i])
         self.active = i
@@ -279,6 +352,7 @@ class CorMain(tk.Tk):
             i = int(idx)
             if i == 0:  # load_config
                 update_dc(self.data, dict_data)
+                self.set_geometry()
                 continue
             self._add_ongl(i, dict_data.get("name"), dict_data)
 

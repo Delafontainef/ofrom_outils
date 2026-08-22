@@ -7,6 +7,7 @@ __pypackages__/
 .pyc
 venv/
 .env
+.coverage
 
 # Au cas où quelqu'un utilise Visual Studio
 .vscode/

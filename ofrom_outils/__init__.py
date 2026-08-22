@@ -13,6 +13,7 @@ from .formats.to_txt import to_txt
 from .logs.log import log, Log
 from .meta import Meta
 from .stats import get_corpus_stats, Stats
+from .gui import CorMain
 
 __all__ = [
     "PRAAT", "FFMPEG", "DATA", "CORE", "CORP", "META", "PAUSE",
@@ -21,5 +22,5 @@ __all__ = [
     "ensure_outdir",
     "kwarg", "anon_ofrom_plus", "multithread", "multiprocess", "mp_wait",
     "from_ofrom", "from_praat", "to_ofrom", "to_praat", "to_txm", "to_txt",
-    "log", "Log", "Meta", "get_corpus_stats", "Stats"
+    "log", "Log", "Meta", "get_corpus_stats", "Stats", "CorMain"
 ]

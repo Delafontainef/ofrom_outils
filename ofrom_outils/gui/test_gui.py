@@ -9,7 +9,7 @@ from typing import Any
 from unittest.mock import patch, Mock, mock_open
 
 from ofrom_outils.gui.gui_models import CorMainData
-from ofrom_outils.gui.gui_window import (
+from ofrom_outils.gui.gui import (
     update_dc, CorOngl, CorMenu, CorConsole, CorMain
 )
 
@@ -52,7 +52,8 @@ class TestCorOngl(unittest.TestCase):
         self.root.withdraw()
         self.ongl = MockOngl(
             self.root,
-            {"name": "abc", "value": 10}
+            {"name": "abc", "value": 10},
+            lambda a, b: None
         )
 
     def tearDown(self):
@@ -184,7 +185,7 @@ class TestCorMain(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
 
         self.data_patch = patch(
-            "ofrom_outils.gui.gui_window.DATA",
+            "ofrom_outils.gui.gui.DATA",
             self.tmp.name
         )
         self.data_patch.start()
@@ -222,7 +223,7 @@ class TestCorMain(unittest.TestCase):
 
         self.assertEqual(
             self.gui.data,
-            CorMainData([0, 0], [720, 480], "", -1)
+            CorMainData([0, 0], [720, 480], 50, "", -1)
         )
 
         self.gui.destroy()  # causes '_save_config' to be called
@@ -235,6 +236,7 @@ class TestCorMain(unittest.TestCase):
             {
                 "pos": [0, 0],
                 "size": [720, 480],
+                "sash_pos": 50,
                 "save_file": "",
                 "active": -1
             }
@@ -256,7 +258,7 @@ class TestCorMain(unittest.TestCase):
 
         self.assertEqual(
             self.gui.data,
-            CorMainData([10, 24], [1000, 700], "", 2)
+            CorMainData([10, 24], [1000, 700], 50, "", 2)
         )
         self.assertEqual(
             self.gui.geometry(),
@@ -342,7 +344,7 @@ class TestCorMain(unittest.TestCase):
         )
 
         with patch.dict(
-                "ofrom_outils.gui.gui_window.ONGL",
+                "ofrom_outils.gui.gui.ONGL",
                 {"test": factory}
         ):
             self.gui._add_ongl(0, "test", {})
@@ -398,7 +400,7 @@ class TestCorMain(unittest.TestCase):
                 patch.object(self.gui, "_empty_ongl") as mock_empty,
                 patch.object(self.gui, "_add_ongl") as mock_add,
                 patch(
-                    "ofrom_outils.gui.gui_window.update_dc"
+                    "ofrom_outils.gui.gui.update_dc"
                 ) as mock_update,
             ):
                 self.gui.load(path)
@@ -422,7 +424,7 @@ class TestCorMain(unittest.TestCase):
         old_file = self.gui.data.save_file = "wapiti.txt"
         with (
             patch(
-                "ofrom_outils.gui.gui_window.filedialog.askopenfilename",
+                "ofrom_outils.gui.gui.filedialog.askopenfilename",
                 side_effect=["", "test.json"]
             ),
             patch.object(self.gui, "load") as mock_load,
@@ -443,7 +445,7 @@ class TestCorMain(unittest.TestCase):
 
         with (
             patch(
-                "ofrom_outils.gui.gui_window.os.path.isfile",
+                "ofrom_outils.gui.gui.os.path.isfile",
                 return_value=False
             ) as mock_isfile,
             patch.object(self.gui, "save_as"),
@@ -459,12 +461,12 @@ class TestCorMain(unittest.TestCase):
         m = mock_open()
         with (
             patch(
-                "ofrom_outils.gui.gui_window.os.path.isfile",
+                "ofrom_outils.gui.gui.os.path.isfile",
                 return_value=True
             ),
             patch("builtins.open", m),
             patch(
-                "ofrom_outils.gui.gui_window.json.dump"
+                "ofrom_outils.gui.gui.json.dump"
             ) as mock_dump
         ):
             self.gui.save("test.json")
@@ -486,7 +488,7 @@ class TestCorMain(unittest.TestCase):
         self.gui = CorMain()
         with (
             patch(
-                "ofrom_outils.gui.gui_window.filedialog.asksaveasfilename",
+                "ofrom_outils.gui.gui.filedialog.asksaveasfilename",
                 side_effect=["", "test.json"]
             ),
             patch.object(self.gui, "save") as mock_save,

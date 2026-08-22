@@ -6,9 +6,17 @@ from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass
+class CorAudioData:
+    """Données pour l'interface audio."""
+    ...
+
+
+@dataclass
 class CorMainData:
+    """Données pour la fenêtre principale."""
     pos: list[int]
     size: list[int]
+    sash_pos: int
     save_file: str
     active: int
 
