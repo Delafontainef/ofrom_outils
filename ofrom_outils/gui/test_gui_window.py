@@ -1,21 +1,101 @@
-import tkinter as tk
-import unittest
-from unittest.mock import patch
-
-from ofrom_outils.gui.gui_window import (
-    CorMenu, CorConsole, CorMain
-)
-
 import json
 import os
 import tempfile
+import tkinter as tk
+import unittest
+from dataclasses import asdict, dataclass
+from tkinter import ttk
+from typing import Any
+from unittest.mock import patch, Mock, mock_open
+
+from ofrom_outils.gui.gui_models import CorMainData
+from ofrom_outils.gui.gui_window import (
+    update_dc, CorOngl, CorMenu, CorConsole, CorMain
+)
+
+
+@dataclass
+class MockData:
+    name: str
+    value: int
+
+
+class TestUpdateDc(unittest.TestCase):
+    def test_update_dc(self):
+        @dataclass
+        class Data:
+            name: str = "old"
+            value: int = 1
+
+        obj = Data()
+
+        update_dc(obj, {
+            "name": "new",
+            "value": 42,
+            "unknown": "ignored",
+        })
+
+        self.assertEqual(obj.name, "new")
+        self.assertEqual(obj.value, 42)
+        self.assertFalse(hasattr(obj, "unknown"))
+
+
+class MockOngl(CorOngl[MockData]):
+    def fill_data(self, data: dict[str, Any]) -> MockData:
+        return MockData(**data)
+
+
+class TestCorOngl(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.ongl = MockOngl(
+            self.root,
+            {"name": "abc", "value": 10}
+        )
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_init_fill_data(self):
+        self.assertEqual(
+            self.ongl.data,
+            MockData(name="abc", value=10)
+        )
+
+    def test_get_data(self):
+        result = self.ongl.get_data()
+
+        self.assertEqual(
+            result,
+            {"name": "abc", "value": 10}
+        )
+        result["name"] = "changed"
+
+        self.assertEqual(self.ongl.data.name, "abc")
+
+    def test_set_data(self):
+        self.ongl.set_data({"name": "changed"})
+
+        self.assertEqual(self.ongl.data.name, "changed")
+        self.assertEqual(self.ongl.data.value, 10)
+
+        self.ongl.set_data({"unknown": 123})
+
+        self.assertFalse(hasattr(self.ongl.data, "unknown"))
+
 
 class TestCorMenu(unittest.TestCase):
 
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()
-        self.menu = CorMenu(self.root)
+        self.menu = CorMenu(self.root, {
+            "load": lambda: None,
+            "save": lambda: None,
+            "save_as": lambda: None,
+        })
 
     def tearDown(self):
         self.root.destroy()
@@ -101,7 +181,6 @@ class TestCorConsole(unittest.TestCase):
 class TestCorMain(unittest.TestCase):
 
     def setUp(self):
-        self.gui = CorMain()
         self.tmp = tempfile.TemporaryDirectory()
 
         self.data_patch = patch(
@@ -109,60 +188,317 @@ class TestCorMain(unittest.TestCase):
             self.tmp.name
         )
         self.data_patch.start()
+        self.gui = None
 
     def tearDown(self):
+        if self.gui:
+            self.gui.destroy()
         self.data_patch.stop()
         self.tmp.cleanup()
-        self.gui.destroy()
 
-    def test_load_config_default(self):
-        self.gui._load_config()
+    @staticmethod
+    def _geometry(
+            x: int = 0,
+            y: int = 0,
+            width: int = 720,
+            height: int = 480,
+            widget: tk.Misc = tk.Misc()
+    ) -> tk.Event:
+        event = tk.Event()
+        event.x = x
+        event.y = y
+        event.width = width
+        event.height = height
+        event.widget = widget
+        return event
+
+    @staticmethod
+    def _fake_after(delay, callback, *args):
+        delay -= 300
+        callback(*args)
+
+    def test_config_default(self):
+        self.gui = CorMain()  # causes '_load_config' to be called
 
         self.assertEqual(
             self.gui.data,
+            CorMainData([0, 0], [720, 480], "", -1)
+        )
+
+        self.gui.destroy()  # causes '_save_config' to be called
+        self.gui = None
+        config_file = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        with open(config_file, "r", encoding="utf-8") as rf:
+            json_data = json.load(rf)
+        self.assertEqual(
+            json_data,
             {
-                "taille": [720, 480],
+                "pos": [0, 0],
+                "size": [720, 480],
                 "save_file": "",
-                "actif": -1
+                "active": -1
             }
         )
 
     def test_load_config_exists(self):
         config = {
-            "taille": [1000, 700],
+            "pos": [10, 24],
+            "size": [1000, 700],
             "save_file": "test.txt",
-            "actif": 2
+            "active": 2,
+            "unknown": "DO_NOT_LOAD"
         }
         path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
-
         with open(path, "w", encoding="utf-8") as wf:
             json.dump(config, wf)
-        self.gui._load_config()
 
-        self.assertEqual(self.gui.data, config)
+        self.gui = CorMain()
 
-    def test_save_config(self):
-        self.gui.data = {
-            "taille": [800, 600],
-            "save_file": "foo.txt",
-            "actif": 1
-        }
-        self.gui._save_config()
-
-        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
-        with open(path, "r", encoding="utf-8") as rf:
-            saved = json.load(rf)
-
-        self.assertEqual(saved, self.gui.data)
+        self.assertEqual(
+            self.gui.data,
+            CorMainData([10, 24], [1000, 700], "", 2)
+        )
+        self.assertEqual(
+            self.gui.geometry(),
+            "1x1+10+24"
+        )  # size due to test environment
 
     def test_save_config_ignores(self):
-        self.gui.data = {"test": 1}
+        self.gui = CorMain()
         event = tk.Event()
-        event.widget = tk.Frame(self.gui) # different widget destroyed
+        event.widget = tk.Frame(self.gui)  # different widget destroyed
         self.gui._save_config(event)
 
         path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
         self.assertFalse(os.path.exists(path))
+
+    def test_save_geometry(self):
+        self.gui = CorMain()
+        event = self._geometry(100, 200, 800, 600)
+        self.gui._save_geometry(event)
+
+        self.assertEqual(self.gui.data.pos, [100, 200])
+        self.assertEqual(self.gui.data.size, [800, 600])
+
+    def test_on_configure(self):
+        self.gui = CorMain()
+        event1 = self._geometry(0, 0, 720, 480, tk.Frame(self.gui))
+        event2 = self._geometry(10, 20, 720, 480, self.gui)
+        event3 = self._geometry(10, 30, 720, 480, self.gui)
+        event4 = self._geometry(20, 50, 720, 480, self.gui)
+
+        with (
+            patch.object(self.gui, "after_cancel") as mock_cancel,
+            patch.object(self.gui, "after") as mock_after
+        ):
+            self.gui._on_configure(event1)
+            self.gui._on_configure(event2)
+            self.gui._on_configure(event3)
+            self.gui._on_configure(event4)
+
+            self.assertEqual(mock_after.call_count, 3)
+            self.assertEqual(mock_cancel.call_count, 2)
+        with patch.object(self.gui, "after", side_effect=self._fake_after):
+            self.gui._on_configure(event2)
+            self.gui._on_configure(event3)
+            self.gui._on_configure(event4)
+            self.assertEqual(self.gui.data.pos, [20, 50])
+            self.assertIsNone(self.gui._geometry_job)
+
+    def test_set_geometry(self):
+        self.gui = CorMain()
+        self.gui.geometry(f"1x1+10+24")
+        self.gui.set_geometry()  # gui.data default geometry
+        self.assertEqual(self.gui.data.pos, [0, 0])
+        self.assertEqual(self.gui.data.size, [720, 480])
+
+        self.gui.set_geometry([20, 50], [1000, 800])
+        self.assertEqual(self.gui.geometry(), "1x1+20+50")
+        self.assertEqual(self.gui.data.pos, [20, 50])
+        self.assertEqual(self.gui.data.size, [1000, 800])
+
+    def test_empty_ongl(self):
+        self.gui = CorMain()
+        tab1 = Mock()
+        tab2 = Mock()
+        self.gui.ongl = [tab1, tab2]
+
+        with patch.object(self.gui.champ, "forget") as mock_forget:
+            self.gui._empty_ongl()
+
+        self.assertEqual(self.gui.ongl, [])
+
+        self.assertEqual(mock_forget.call_count, 2)
+        mock_forget.assert_any_call(tab1)
+        mock_forget.assert_any_call(tab2)
+        tab1.destroy.assert_called_once()
+        tab2.destroy.assert_called_once()
+        self.assertIn(str(self.gui.plus_tab), self.gui.champ.tabs())
+
+    def test_add_ongl(self):
+        self.gui = CorMain()
+        factory = Mock(
+            side_effect=lambda *args, **kwargs: ttk.Frame(self.gui.champ)
+        )
+
+        with patch.dict(
+                "ofrom_outils.gui.gui_window.ONGL",
+                {"test": factory}
+        ):
+            self.gui._add_ongl(0, "test", {})
+            self.gui._add_ongl(1, "test", {})
+
+        self.assertEqual(self.gui.active, 1)
+        self.assertEqual(
+            self.gui.champ.tabs(),
+            (
+                str(self.gui.ongl[0]),
+                str(self.gui.ongl[1]),
+                str(self.gui.plus_tab),
+            )
+        )
+        tab = self.gui.champ.nametowidget(
+            self.gui.champ.tabs()[self.gui.active]
+        )
+        self.assertIs(
+            self.gui.ongl[self.gui.active],
+            tab
+        )
+
+    def test_load(self):
+        self.gui = CorMain()
+        with patch.object(self.gui, "_empty_ongl") as mock_empty:
+            self.gui.load("missing.json")
+            mock_empty.assert_not_called()
+
+        data = {
+            "0": {
+                "save_file": "foo.json",
+                "active": 1,
+            },
+            "1": {
+                "name": "test",
+                "value": 10,
+            },
+            "2": {
+                "name": "test",
+                "value": 20,
+            },
+        }
+        with tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                encoding="utf-8",
+                delete=False
+        ) as f:
+            json.dump(data, f)
+            path = f.name
+        try:
+            with (
+                patch.object(self.gui, "_empty_ongl") as mock_empty,
+                patch.object(self.gui, "_add_ongl") as mock_add,
+                patch(
+                    "ofrom_outils.gui.gui_window.update_dc"
+                ) as mock_update,
+            ):
+                self.gui.load(path)
+
+            mock_empty.assert_called_once()
+            mock_update.assert_called_once_with(
+                self.gui.data,
+                data["0"]
+            )
+            self.assertEqual(mock_add.call_count, 2)
+            mock_add.assert_any_call(
+                2,
+                "test",
+                data["2"]
+            )
+        finally:
+            f.close()
+
+    def test_load_as(self):
+        self.gui = CorMain()
+        old_file = self.gui.data.save_file = "wapiti.txt"
+        with (
+            patch(
+                "ofrom_outils.gui.gui_window.filedialog.askopenfilename",
+                side_effect=["", "test.json"]
+            ),
+            patch.object(self.gui, "load") as mock_load,
+        ):
+            self.gui.load_as()
+            mock_load.assert_not_called()
+            self.assertEqual(self.gui.data.save_file, old_file)
+
+            self.gui.load_as()
+            mock_load.assert_called_once_with("test.json")
+            self.assertEqual(self.gui.data.save_file, "test.json")
+
+    def test_save(self):
+        self.gui = CorMain()
+        with (patch.object(self.gui, "save_as") as mock_save_as):
+            self.gui.save("missing.json")
+            mock_save_as.assert_called_once()
+
+        with (
+            patch(
+                "ofrom_outils.gui.gui_window.os.path.isfile",
+                return_value=False
+            ) as mock_isfile,
+            patch.object(self.gui, "save_as"),
+        ):
+            self.gui.save("saved.json")
+        mock_isfile.assert_called_once_with("saved.json")
+
+        ongl1 = Mock()
+        ongl1.get_data.return_value = {"name": "A", "value": 1}
+        ongl2 = Mock()
+        ongl2.get_data.return_value = {"name": "B", "value": 2}
+        self.gui.ongl = [ongl1, ongl2]
+        m = mock_open()
+        with (
+            patch(
+                "ofrom_outils.gui.gui_window.os.path.isfile",
+                return_value=True
+            ),
+            patch("builtins.open", m),
+            patch(
+                "ofrom_outils.gui.gui_window.json.dump"
+            ) as mock_dump
+        ):
+            self.gui.save("test.json")
+
+        expected = {
+            "0": asdict(self.gui.data),
+            "1": {"name": "A", "value": 1},
+            "2": {"name": "B", "value": 2},
+        }
+        mock_dump.assert_called_once_with(
+            expected,
+            m(),
+            indent=4
+        )
+        ongl1.get_data.assert_called_once()
+        ongl2.get_data.assert_called_once()
+
+    def test_save_as(self):
+        self.gui = CorMain()
+        with (
+            patch(
+                "ofrom_outils.gui.gui_window.filedialog.asksaveasfilename",
+                side_effect=["", "test.json"]
+            ),
+            patch.object(self.gui, "save") as mock_save,
+        ):
+            self.gui.save_as()
+            mock_save.assert_not_called()
+            self.assertEqual(self.gui.data.save_file, "")
+
+            self.gui.save_as()
+            mock_save.assert_called_once_with("test.json")
+            self.assertEqual(self.gui.data.save_file, "test.json")
+
 
 if __name__ == "__main__":
     unittest.main()

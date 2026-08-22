@@ -1,16 +1,66 @@
-import tkinter as tk
-from contextlib import contextmanager
-from tkinter import ttk
-
-import os
 import json
+import os
+import tkinter as tk
+from abc import abstractmethod, ABC
+from contextlib import contextmanager
+from dataclasses import asdict
+from tkinter import filedialog
+from tkinter import ttk
+from typing import Generic, TypeVar
+
 from ofrom_outils.common import DATA
+from ofrom_outils.common_types import Any, Path, Callable
+from ofrom_outils.gui.gui_models import CorMainData
+
+CorOnglData = TypeVar("CorOnglData")
+
+
+def update_dc(obj: object, data: dict[str, Any]):
+    """Updates a dataclass (CorOnglData, CorMainData, ...)."""
+    for key, value in data.items():
+        if hasattr(obj, key):
+            setattr(obj, key, value)
+
+
+class CorOngl(tk.Frame, Generic[CorOnglData], ABC):
+    """Composant de base pour les onglets."""
+
+    def __init__(
+            self,
+            parent: tk.Misc,
+            data: dict[str, Any]
+    ):
+        super().__init__()
+        self.parent = parent
+        self.data = self.fill_data(data)
+
+    @abstractmethod
+    def fill_data(self, data: dict[str, Any]) -> CorOnglData:
+        """Transforme le dict' en dataclass."""
+        ...
+
+    def get_data(self):
+        """Récupère et renvoie les données pour cet onglet."""
+        return asdict(self.data)
+
+    def set_data(self, dat: dict[str, Any]):
+        """Permet de modifier les données pour cet onglet."""
+        update_dc(self.data, dat)
+
+
+ONGL: dict[str, type[CorOngl]] = {
+
+}  # composants accessibles par 'CorMain'
 
 
 class CorMenu(tk.Menu):
     """Composant menu de l'interface."""
 
-    def __init__(self, parent: tk.Misc = None):
+    def __init__(
+            self,
+            parent: tk.Misc,
+            commands: dict[str, Callable]
+    ):
         super().__init__(parent, tearoff=0)
         self.parent = parent
         menu1 = tk.Menu(self, tearoff=0)
@@ -19,12 +69,17 @@ class CorMenu(tk.Menu):
         menu1.add_command(label="Fermer l'onglet",
                           command=lambda: print("Not implemented"))
         menu1.add_separator()
-        menu1.add_command(label="Charger...",
-                          command=lambda: print("Not implemented"))
-        menu1.add_command(label="Sauvegarder...",
-                          command=lambda: print("Not implemented"))
-        menu1.add_command(label="Sauvegarder sous...",
-                          command=lambda: print("Not implemented"))
+        menu1.add_command(
+            label="Charger...",
+            command=commands['load'],
+            accelerator="Ctrl+O"
+        )
+        menu1.add_command(label="Sauvegarder...", command=commands['save'])
+        menu1.add_command(
+            label="Sauvegarder sous...",
+            command=commands['save_as'],
+            accelerator="Ctrl+S"
+        )
         menu1.add_separator()
         menu1.add_command(label="Options",
                           command=lambda: print("Not implemented"))
@@ -116,32 +171,75 @@ class CorMain(tk.Tk):
 
     def __init__(self):
         super().__init__()
-        self.menu = CorMenu(self)  # Menu
-        self.champ = ttk.Notebook(self)  # Champ d'onglets
-        self.console = CorConsole(self)  # Messages à l'utilisateur
-        self.data = {}  # Données générales
-        self.ongl = []  # Liste d'onglets
+        self.menu = CorMenu(self,
+                            commands={
+                                'load': self.load_as,
+                                'save': self.save,
+                                'save_as': self.save_as
+                            })
+        self.panes = ttk.PanedWindow(self, orient="vertical")
+        self.champ = ttk.Notebook(self.panes)
+        self.console = CorConsole(self.panes)
+        self.data = CorMainData([0, 0], [720, 480], "", -1)
+        self.ongl: list[CorOngl] = []
+        self.plus_tab = ttk.Frame(self.champ)
 
         self.config(menu=self.menu)
-        self.champ.grid(row=0, sticky='nwse')
-        self.console.grid(row=1, sticky='nwse', padx=2, pady=2)
+        self.champ.add(self.plus_tab, text="+")
+        self.panes.grid(row=0, column=0, sticky="nwse")
+        self.panes.add(self.champ, weight=1)
+        self.panes.add(self.console, weight=1)
+        self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
 
+        self._geometry_job = None
         self.setup()
+        self.bind("<Configure>", self._on_configure)
         self.bind("<Destroy>", self._save_config)
+        self.bind(
+            "<Control-r>",
+            lambda event: self.set_geometry([0, 0], [720, 480])
+        )
+        self.bind("<Control-o>", lambda event: self.load_as())
+        self.bind("<Control-s>", lambda event: self.save())
+        self.champ.bind("<<NotebookTabChanged>>",
+                        lambda event: None)
+
+    def _save_geometry(self, event: tk.Event) -> None:
+        """Sauvegarde la géométrie dans la configuration."""
+        self._geometry_job = None
+        self.data.pos = [event.x, event.y]
+        self.data.size = [event.width, event.height]
+
+    def _on_configure(self, event: tk.Event) -> None:
+        """S'assure de n'appeler '_save_geometry' qu'une fois."""
+        if event.widget is not self:
+            return
+
+        if self._geometry_job is not None:
+            self.after_cancel(self._geometry_job)
+
+        self._geometry_job = self.after(300, self._save_geometry, event)
+
+    def set_geometry(self, pos: list[int] = None, size: list[int] = None):
+        assert self.data.pos is not None  # shut up IDEA
+        assert self.data.size is not None
+
+        pos = self.data.pos if pos is None else pos
+        size = self.data.size if size is None else size
+        self.geometry(f"{size[0]}x{size[1]}+{pos[0]}+{pos[1]}")
+        self.data.pos = pos
+        self.data.size = size
 
     def _load_config(self):
         """Chargement du fichier de configuration."""
         config_file = os.path.join(DATA, "ofrom_gui_config.json")
         if not os.path.isfile(config_file):
-            self.data = {
-                "taille": [720, 480],
-                "save_file": "",
-                "actif": -1
-            }
             return
         with open(config_file, "r", encoding="utf-8") as rf:
-            self.data = json.load(rf)
+            json_data = json.load(rf)
+            update_dc(self.data, json_data)
+        self.set_geometry()
 
     def _save_config(self, event: tk.Event = None) -> None:
         """Sauvegarde du fichier de configuration."""
@@ -149,11 +247,86 @@ class CorMain(tk.Tk):
             return
         config_file = os.path.join(DATA, "ofrom_gui_config.json")
         with open(config_file, "w", encoding="utf-8") as wf:
-            json.dump(self.data, wf, indent=4)
+            json.dump(asdict(self.data), wf, indent=4)
+
+    def _empty_ongl(self) -> None:
+        """Vide la liste d'onglets."""
+        for widget in self.ongl:
+            self.champ.forget(widget)
+            widget.destroy()
+        self.ongl.clear()
+
+    def _add_ongl(self, i: int, name: str, data: dict[str, Any]) -> None:
+        """Ajoute un onglet."""
+        if name not in ONGL:
+            return
+        i = max(0, min(i, len(self.ongl)))
+        self.ongl.insert(i, ONGL[name](self.champ, data))
+        self.champ.insert(i, self.ongl[i], text=name)
+        self.champ.select(self.ongl[i])
+        self.active = i
+
+    def load(self, file_path: Path = None) -> None:
+        """Charge les onglets (depuis un fichier JSON)."""
+        load_file = file_path if file_path is not None \
+            else self.data.save_file
+        if not os.path.isfile(load_file):  # leave empty
+            return
+        with open(load_file, "r", encoding="utf-8") as rf:
+            json_data = json.load(rf)
+        self._empty_ongl()
+        for idx, dict_data in json_data.items():
+            i = int(idx)
+            if i == 0:  # load_config
+                update_dc(self.data, dict_data)
+                continue
+            self._add_ongl(i, dict_data.get("name"), dict_data)
+
+    def load_as(self) -> None:
+        """Charge les données en demandant le chemin du fichier JSON."""
+        f = filedialog.askopenfilename(
+            title="Charger une sauvegarde",
+            initialdir=self.data.save_file,
+            filetypes=[("Json", ".json")]
+        )
+        if f:
+            self.load(f)
+            self.data.save_file = f
+
+    def save(self, file_path: Path = None) -> None:
+        """Sauvegarde les onglets (dans un fichier JSON)."""
+        save_file = file_path if file_path is not None \
+            else self.data.save_file
+        if not os.path.isfile(save_file):  # ask user for save location
+            self.save_as()
+            return
+        json_data: dict[str, dict[str, Any]] = {
+            "0": asdict(self.data)
+        }
+        for i, ongl in enumerate(self.ongl):
+            json_data[str(i + 1)] = ongl.get_data()
+        with open(save_file, "w", encoding="utf-8") as wf:
+            json.dump(json_data, wf, indent=4)
+
+    def save_as(self):
+        """Sauvegarde en demandant le chemin du fichier JSON."""
+        f = tk.filedialog.asksaveasfilename(
+            title="Sauvegarder sous...",
+            initialdir=self.data.save_file,
+            filetypes=[("JSON", "*.json")],
+            defaultextension=".json"
+        )
+        if f:
+            self.save(f)
+            self.data.save_file = f
 
     def setup(self):
         """Mise en place des données / onglets."""
         self._load_config()
+        if os.path.isfile(self.data.save_file):
+            self.load(self.data.save_file)
+        else:
+            self.data.save_file = ""
 
 
 if __name__ == "__main__":

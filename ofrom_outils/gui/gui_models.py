@@ -1,7 +1,16 @@
 import tkinter as tk
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
 from tkinter import ttk
 from typing import Any, Protocol, runtime_checkable
-from contextlib import AbstractContextManager
+
+
+@dataclass
+class CorMainData:
+    pos: list[int]
+    size: list[int]
+    save_file: str
+    active: int
 
 
 @runtime_checkable
@@ -30,9 +39,9 @@ class CorConsole(Protocol):
     def pyw(self, txt: str, mode: str) -> None:
         ...
 
+
 @runtime_checkable
 class CorMain(Protocol):
-
     menu: CorMenu
     champ: ttk.Notebook
     console: CorConsole
