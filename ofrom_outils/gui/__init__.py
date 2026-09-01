@@ -1,7 +1,10 @@
 from ofrom_outils.gui.gui import (
-    ONGL, Pathfinder, CorOngl, CorMain
+    ONGL, CorMain
+)
+from ofrom_outils.gui.gui_ongl import (
+    FilePath, DirPath, CorOngl
 )
 
 __all__ = [
-    "ONGL", "Pathfinder", "CorOngl", "CorMain"
+    "ONGL", "FilePath", "DirPath", "CorOngl", "CorMain"
 ]

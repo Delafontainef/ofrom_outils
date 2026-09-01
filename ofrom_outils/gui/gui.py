@@ -9,107 +9,15 @@ Cela exclut un onglet spécifique qui doit être ajouté dans ONGL.
 import json
 import os
 import tkinter as tk
-from abc import abstractmethod, ABC
 from contextlib import contextmanager
 from dataclasses import asdict
 from tkinter import filedialog
 from tkinter import ttk
-from typing import Generic, TypeVar
 
-from ofrom_outils.common import DATA
+from ofrom_outils.common import DATA, update_dc
 from ofrom_outils.common_types import Any, Path, Callable
 from ofrom_outils.gui.gui_models import CorMainData
-
-
-def update_dc(obj: object, data: dict[str, Any]):
-    """Updates a dataclass (CorOnglData, CorMainData, ...)."""
-    for key, value in data.items():
-        if hasattr(obj, key):
-            setattr(obj, key, value)
-
-
-class Pathfinder(tk.Frame):
-
-    def __init__(
-            self,
-            parent: tk.Misc,
-            label: str = "",
-            path: Path = "",
-    ):
-        super().__init__(parent)
-        self.label = tk.Label(self, text=label, anchor="w")
-        self.value = tk.StringVar(self, self.format_path(path))
-        self.entry = tk.Entry(
-            self,
-            textvariable=self.value,
-            state="readonly"
-        )
-        self.button = tk.Button(
-            self,
-            text="...",
-            command=self.set_path_as
-        )
-
-    @staticmethod
-    def format_path(npath: Path, endswith: str = "metadata.xlsx") -> Path:
-        """Formatte le chemin pour l'affichage."""
-        if (not os.path.isdir(npath)) and (not os.path.isfile(npath) or
-                                           (endswith and not npath.endswith(
-                                               endswith))):
-            return ""
-        return npath
-
-    def set(self, npath: Path) -> None:
-        """Change le chemin."""
-        self.value.set(self.format_path(npath))
-        self.entry.icursor(tk.END)
-        self.entry.xview_moveto(1.0)
-
-    def set_path_as(self) -> None:
-        """Change le chemin en demandant à l'utilisateur."""
-        label = self.label.cget("text")
-        if "métadonnées" in label.lower():  # recherche un fichier
-            npath = tk.filedialog.askopenfilename(title=label)
-        else:  # recherche un dossier
-            npath = tk.filedialog.askdirectory(title=label)
-        if not npath:
-            return
-        self.set(npath)
-
-    def get(self):
-        return self.format_path(self.value.get())
-
-
-CorOnglData = TypeVar("CorOnglData")
-
-
-class CorOngl(tk.Frame, Generic[CorOnglData], ABC):
-    """Composant de base pour les onglets."""
-
-    def __init__(
-            self,
-            parent: tk.Misc,
-            data: dict[str, Any],
-            pyw: Callable[[str, str], None]
-    ):
-        super().__init__(parent)
-        self.parent = parent
-        self.data = self.fill_data(data)
-        self.pyw = pyw
-
-    @abstractmethod
-    def fill_data(self, data: dict[str, Any]) -> CorOnglData:
-        """Transforme le dict' en dataclass."""
-        ...
-
-    def get_data(self):
-        """Récupère et renvoie les données pour cet onglet."""
-        return asdict(self.data)
-
-    def set_data(self, dat: dict[str, Any]):
-        """Permet de modifier les données pour cet onglet."""
-        update_dc(self.data, dat)
-
+from ofrom_outils.gui.gui_ongl import CorOngl
 
 ONGL: dict[str, type[CorOngl]] = {
 

@@ -11,7 +11,7 @@ import time
 
 # from ofrom_outils.logs.log import log
 from ofrom_outils.common_types import (
-    Callable, Iterator, Path, IterPath, IterCorp, MPList,
+    Any, Callable, Iterator, Path, IterPath, IterCorp, MPList,
     Transcription, Tier, Segment
 )
 
@@ -99,9 +99,16 @@ def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
     return [fix(l_ext)]
 
 
+def update_dc(obj: object, data: dict[str, Any]):
+    """Updates a dataclass."""
+    for key, value in data.items():
+        if hasattr(obj, key):
+            setattr(obj, key, value)
+
+
 def iter_file(
         d: Path,
-        l_ext: str | list[str] = None
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterPath]:
     """Itère de façon non-récursive sur un dossier.
        [!] Si 'l_ext' a des extensions, ne retourne que les fichiers
@@ -118,7 +125,7 @@ def iter_file(
 
 def iter_all(
         d: Path,
-        l_ext: str | list[str] = None
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterPath]:
     """Itère récursivement sur un dossier.
        [!] Si 'l_ext' a des extensions, ne retourne que les fichiers
@@ -136,7 +143,7 @@ def iter_all(
 
 def get_files(
         d: Path,
-        l_ext: str | list[str] = None,
+        l_ext: str | list[str] | None = None,
         ch_all: bool = False,
         verbose: bool = False
 ) -> list[Path | IterPath]:
@@ -152,9 +159,9 @@ def get_files(
 
 
 def iter_core(
-        corp: list[str] = None,
+        corp: list[str] | None = None,
         sub: str = "",
-        l_ext: str | list[str] = None
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterCorp]:
     """Itère non-récursivement sur l'ensemble du corpus.
        - core:      (str) le dossier du corpus.
@@ -174,9 +181,9 @@ def iter_core(
 
 
 def get_core(
-        corp: list[str] = None,
+        corp: list[str] | None = None,
         sub: str = "",
-        l_ext: list[str] = None,
+        l_ext: list[str] | None = None,
         verbose: bool = False
 ) -> list[Path] | list[IterCorp]:
     """Renvoie la liste de toutes les transcriptions du corpus.
@@ -217,7 +224,7 @@ def ensure_outdir(d: Path) -> None:
 
 
 def iter_top_tiers(
-        tr: Transcription, spk: list | str = None
+        tr: Transcription, spk: list | str | None = None
 ) -> Iterator[Tier]:
     """
     Itère sur les tires d'une transcription.
@@ -257,7 +264,7 @@ def iter_segs(
 
 def get_top_tiers(
         tr: Transcription,
-        spk: str | list[str] = None
+        spk: str | list[str] | None = None
 ) -> list[Tier]:
     """La liste des tires de transcription."""
     return [ti for ti in iter_top_tiers(tr, spk)]
@@ -371,7 +378,7 @@ def _mp_thr(
 def multiprocess(
         func: Callable,
         l_files: list[Path],
-        args: list = None,
+        args: list | None = None,
         n: int = -1,
         wait: bool = True
 ) -> None | tuple[list[mp.Process], MPList]:
@@ -416,7 +423,7 @@ def multiprocess(
 def multithread(
         func: Callable,
         l_files: list[Path],
-        args: list = None,
+        args: list | None = None,
         n: int = -1,
         wait: bool = True
 ) -> None | tuple[list[thr.Thread], list]:
