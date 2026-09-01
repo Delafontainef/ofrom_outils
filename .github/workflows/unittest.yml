@@ -19,4 +19,4 @@ jobs:
           pip install .
       - name: Run unittest
         run: |
-          python -m unittest discover -s ofrom_outils -p "test_*.py"
+          python xvfb-run -m unittest discover -s ofrom_outils -p "test_*.py"
