@@ -76,6 +76,23 @@ class FilePath(AbsPath):
         )
 
 
+class FilesPath(AbsPath):
+    def __init__(
+            self,
+            parent: tk.Misc,
+            label: str = "",
+            path: Path = "",
+            regex: str = r""
+    ):
+        super().__init__(
+            parent,
+            label,
+            path,
+            regex,
+            tk.filedialog.askopenfilenames
+        )
+
+
 class DirPath(AbsPath):
     def __init__(
             self,

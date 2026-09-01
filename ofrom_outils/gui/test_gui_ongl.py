@@ -5,7 +5,7 @@ from typing import Any
 from unittest.mock import patch, Mock
 
 from ofrom_outils.gui.gui_ongl import (
-    AbsPath, FilePath, DirPath, CorOngl
+    AbsPath, FilePath, FilesPath, DirPath, CorOngl
 )
 
 
@@ -72,9 +72,13 @@ class TestPath(unittest.TestCase):
             value = pf.get()
             self.assertEqual(value, "foo")
 
-    def test_files(self):
+    def test_file(self):
         widget = FilePath(self.root)
         self.assertIs(widget.setopen, tk.filedialog.askopenfilename)
+
+    def test_files(self):
+        widget = FilesPath(self.root)
+        self.assertIs(widget.setopen, tk.filedialog.askopenfilenames)
 
     def test_dirs(self):
         widget = DirPath(self.root)

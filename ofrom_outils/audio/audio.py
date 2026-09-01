@@ -200,7 +200,7 @@ def subp(
     # --------------#
 
 
-def audio_level(path: Path) -> tuple[float, float]:
+def audio_level(path: Path) -> tuple[float| None, float| None]:
     """Renvoie le volume moyen/maximum d'un fichier en dB."""
     res = subprocess.run(f"{FFM} -i \"{path}\" " +
                          "-af volumedetect -f null /dev/null",
@@ -292,15 +292,13 @@ def all_audio_mean(
     elif l_out is None:  # get audio levels
         l_out = all_audio_level(path)[0]
     for fi, mes, mean_vol, g_mean, sd in l_out:  # fit l_out in d_out
-        d_out[fi] = (mean_vol, g_mean)
+        d_out[fi] = (mean_vol, g_mean if not mean else mean)
     for fi, ext, file, path in iter_all(path):  # process
         ch, fi, ext, file, path = check(fi, ext, file, path)
         if (not ch) or (fi not in d_out):
             continue
         log(fi, verbose=verbose)
         mean_vol, g_mean = d_out[fi]
-        if mean:
-            g_mean = mean
         audio_mean(path, os.path.join(npath, file), mean_vol, g_mean, ext, rem)
 
     # Audio cut #
