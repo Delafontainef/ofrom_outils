@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 from ofrom_outils.meta.meta_geonames import (
     _open_zip_txt, _iter_geo, _open_connection, _download_file,
     download_geonames,
-    _get_admin_geoids, _get_country_geoids, _get_french_names,
-    _score_geonames, _vacuum_database,
+    _get_admin_geoids, _get_country_geoids, _check_admin,
+    _get_french_names, _score_geonames, _vacuum_database,
     get_location_dict, create_database, fill_database, create_index,
     rebuild_database, get_raw_geoname
 )
@@ -206,6 +206,20 @@ class TestGetCountryDict(unittest.TestCase):
             with self.assertRaises(ValueError):
                 _get_country_geoids(country_file)
 
+
+    def test_check_admin(self):
+        for k, v in [
+            ("Canton de Genève", "Genève"),
+            ("République du Congo", "Congo"),
+            ("Canton d'Argovie", "Argovie"),
+            ("Paris", "Paris")
+        ]:
+
+            self.assertEqual(
+                _check_admin(k),
+                v
+            )
+
     @patch("ofrom_outils.meta.meta_geonames.os.path.isfile")
     @patch("ofrom_outils.meta.meta_geonames._open_zip_txt")
     def test_get_french_names(self, mock_open_zip, mock_isfile):
@@ -346,8 +360,9 @@ class TestScoreGeonames(unittest.TestCase):
 class TestVacuumDatabase(unittest.TestCase):
     def setUp(self):
         self.conn = sqlite3.connect(":memory:")
+        self.table = "test"
         self.conn.execute("""
-                          CREATE TABLE locations
+                          CREATE TABLE test
                           (
                               geonameid   INTEGER PRIMARY KEY,
                               nom         TEXT,
@@ -364,7 +379,7 @@ class TestVacuumDatabase(unittest.TestCase):
     def test_vacuum_database_keeps_highest_score(self):
         self.conn.executemany(
             """
-            INSERT INTO locations
+            INSERT INTO test
                 (geonameid, nom, departement, region, pays, score)
             VALUES (?, ?, ?, ?, ?, ?)
             """,
@@ -377,10 +392,10 @@ class TestVacuumDatabase(unittest.TestCase):
         )
         self.conn.commit()
 
-        _vacuum_database(self.conn)
+        _vacuum_database(self.conn, self.table)
 
         rows = self.conn.execute(
-            "SELECT geonameid FROM locations ORDER BY geonameid"
+            "SELECT geonameid FROM test ORDER BY geonameid"
         ).fetchall()
 
         self.assertEqual(rows, [(2,), (4,)])
@@ -407,7 +422,7 @@ class TestDatabase(unittest.TestCase):
         self.conn.close()
 
     def test_create_database_table_exists(self):
-        create_database(self.conn)
+        create_database(self.conn, "test")
         cursor = self.conn.cursor()
         cursor.execute("""
                        SELECT name
@@ -417,13 +432,13 @@ class TestDatabase(unittest.TestCase):
         tables = {row[0] for row in cursor.fetchall()}
         self.assertEqual(
             tables,
-            {"locations"},
+            {"test"},
         )
 
     def test_create_database_columns(self):
-        create_database(self.conn)
+        create_database(self.conn, "test")
         cursor = self.conn.cursor()
-        cursor.execute("PRAGMA table_info(locations)")
+        cursor.execute("PRAGMA table_info(test)")
 
         columns = [row[1] for row in cursor.fetchall()]
 
@@ -442,14 +457,14 @@ class TestDatabase(unittest.TestCase):
         )
 
     def test_create_index(self):
-        create_database(self.conn)
-        create_index(self.conn)
+        create_database(self.conn, "test")
+        create_index(self.conn, "test")
         cursor = self.conn.cursor()
         cursor.execute("""
                        SELECT name
                        FROM sqlite_master
                        WHERE type = 'index'
-                         AND name = 'idx_locations_nom'
+                         AND name = 'idx_test_nom'
                        """)
 
         self.assertIsNotNone(cursor.fetchone())
@@ -471,18 +486,18 @@ class TestDatabase(unittest.TestCase):
             "10000024\tParis\t11\t75\tFR\t48.8566\t2.3522\t\t\t\n"
         ]
 
-        fill_database(self.conn)
+        fill_database(self.conn, "test")
 
         row = self.conn.execute(
             "SELECT nom, departement, region, pays, latitude, longitude "
-            "FROM locations"
+            "FROM test"
         ).fetchone()
 
         self.assertEqual(
             row,
             ("Paris", "Paris", "Île-de-France", "France", 48.8566, 2.3522),
         )
-        mock_create.assert_called_once_with(self.conn)
+        mock_create.assert_called_once_with(self.conn, "test")
 
     @patch("ofrom_outils.meta.meta_geonames._score_geonames")
     @patch("ofrom_outils.meta.meta_geonames.create_database",
@@ -502,13 +517,13 @@ class TestDatabase(unittest.TestCase):
         mock_zip.return_value.__enter__.return_value = [
             "10000024\tParis\t11\t75\tFR\t48.8566\t2.3522\t\t\t\n"
         ]
-        create_database(self.conn)
+        create_database(self.conn, "test")
         mock_create.reset_mock()
-        fill_database(self.conn)
+        fill_database(self.conn, "test")
 
         row = self.conn.execute(
             "SELECT nom, departement, region, pays, latitude, longitude "
-            "FROM locations"
+            "FROM test"
         ).fetchone()
 
         self.assertEqual(
@@ -532,12 +547,12 @@ class TestDatabase(unittest.TestCase):
             "3\tParis\t11\t75\tFR\t9.0\t9.0\tP\tPPL\t10\n",
         ]
 
-        fill_database(self.conn)
+        fill_database(self.conn, "test")
 
         rows = self.conn.execute(
             """
             SELECT nom, latitude, longitude, score
-            FROM locations
+            FROM test
             """
         ).fetchall()
 
@@ -582,7 +597,7 @@ class TestGetGeoname(unittest.TestCase):
         result = get_raw_geoname("Paris")
 
         cursor.execute.assert_called_once_with(
-            "SELECT *\nFROM locations\nWHERE nom = ?",
+            "SELECT * FROM remote_geonames\nWHERE nom = ?",
             ["Paris"],
         )
         self.assertEqual(result, [("result",)])
@@ -601,7 +616,7 @@ class TestGetGeoname(unittest.TestCase):
         )
 
         cursor.execute.assert_called_once_with(
-            "SELECT *\nFROM locations\nWHERE nom = ?\n"
+            "SELECT * FROM remote_geonames\nWHERE nom = ?\n"
             "AND departement = ?\n"
             "AND region = ?\n"
             "AND pays = ?",

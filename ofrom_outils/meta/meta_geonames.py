@@ -15,9 +15,11 @@ import requests
 
 from ofrom_outils.common import DATA
 from ofrom_outils.common_types import Path, Iterator, Callable
+from ofrom_outils.db.db import read_sql
 
 GEONAME: str = "https://download.geonames.org/export/dump/"
 LOCAL_DB: Path = os.path.join(DATA, "geonames.db")
+DB = read_sql(os.path.join(os.path.dirname(str(__file__)), "geonames.sql"))
 
 ALLCOUNTRIES_COLS: dict[str, int] = {
     "geonameid": 0,
@@ -101,6 +103,16 @@ def _open_connection(
         local_conn.close()
 
 
+def _check_admin(fr: str) -> str:
+    """Retirer les 'républiques' et 'cantons'."""
+    if not fr.lower().startswith(
+            ("république", "canton", "région", "département", "district")
+    ):
+        return fr
+    fr = fr.rsplit(" ", 1)[1]
+    return fr.split("d'", 1)[1] if fr.startswith("d'") else fr
+
+
 def _get_french_names(alternate_file: Path) -> dict[str, str]:
     """Récupère les noms français d'à peu près tout, par geonameid."""
     if not os.path.isfile(alternate_file):
@@ -112,8 +124,9 @@ def _get_french_names(alternate_file: Path) -> dict[str, str]:
             if (row[ALTNAMES_COLS["isolanguage"]] != 'fr' or
                 row[ALTNAMES_COLS["isPreferredName"]]) != '1':
                 continue
+            fr = row[ALTNAMES_COLS["alternate_name"]]
             french_geonames[row[ALTNAMES_COLS["geonameid"]]] = \
-                row[ALTNAMES_COLS["alternate_name"]]
+                _check_admin(fr)
     return french_geonames
 
 
@@ -135,7 +148,7 @@ def _download_file(
 
 
 def download_geonames(
-        list_files: list[str] = None,
+        list_files: list[str] | None = None,
         replace: bool = False
 ) -> list[Path]:
     """
@@ -204,13 +217,13 @@ LOCATION_FUNC: dict[str, tuple[str, Callable]] = {
 
 def get_location_dict(
         loc: str = "pays",
-        french_geonames: dict[str, str] = None
+        french_geonames: dict[str, str] | None = None
 ) -> dict[str, str]:
     """
     Renvoie un dict' de lieux par code, traduits.
     type: 'country', 'region', 'departement'
     """
-    file, f = LOCATION_FUNC.get(loc, None)
+    file, f = LOCATION_FUNC.get(loc, ("", None))
     if not f:
         raise ValueError(
             f"Unsupported location file: {loc}. "
@@ -227,28 +240,17 @@ def get_location_dict(
     return location_dict
 
 
-def create_database(conn: sqlite3.Connection = None) -> None:
+def create_database(
+        conn: sqlite3.Connection | None = None,
+        table: str = "remote_geonames"
+) -> None:
     """Crée la base de données"""
     with _open_connection(conn) as (local_conn, cursor):
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS locations
-            (
-                geonameid   INTEGER PRIMARY KEY,
-                nom         VARCHAR(200),
-                departement VARCHAR(20),
-                region      VARCHAR(20),
-                pays        VARCHAR(20),
-                latitude    FLOAT,
-                longitude   FLOAT,
-                score       INTEGER NOT NULL DEFAULT 0
-            )
-            """
-        )
+        cursor.execute(DB['create'].format(table=table))
         local_conn.commit()
 
 
-def _score_geonames(row) -> float:
+def _score_geonames(row) -> int:
     feature_class = row['feature_class']
     feature_code = row['feature_code']
     pop = int(row['population'])
@@ -266,45 +268,30 @@ def _score_geonames(row) -> float:
                   + math.log10(pop + 1)) * 10)
 
 
-def _vacuum_database(conn: sqlite3.Connection = None) -> None:
+def _vacuum_database(
+        conn: sqlite3.Connection | None = None,
+        table: str = "remote_geonames"
+) -> None:
     """
     Nettoie la base de données.
     Retire les doublons régionaux, puis 'vacuum' l'ensemble.
     """
     with _open_connection(conn) as (local_conn, cursor):
-        cursor.execute(
-            """
-            DELETE FROM locations
-            WHERE geonameid IN (
-                SELECT geonameid
-                FROM (
-                         SELECT geonameid,
-                                ROW_NUMBER() OVER (
-                            PARTITION BY nom, departement, region, pays
-                            ORDER BY score DESC
-                        ) AS rn
-                         FROM locations
-                     )
-                WHERE rn > 1
-            )
-            """
-        )
+        cursor.execute(DB['vacuum'].format(table=table))
         local_conn.commit()
         cursor.execute("VACUUM")
         local_conn.commit()
 
 
-def fill_database(conn: sqlite3.Connection = None) -> None:
+def fill_database(
+        conn: sqlite3.Connection | None = None,
+        table: str = "remote_geonames"
+) -> None:
     """
     Remplit la base de données.
     1. Récupère les dictionnaires (pays, région, département)
     2. Pour chaque ligne de 'allCountries', l'ajoute à la db.
     """
-    sql = """
-          INSERT INTO locations
-              (nom, departement, region, pays, latitude, longitude, score)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-          """
     french_geonames = _get_french_names(
         os.path.join(DATA, "alternateNamesV2.zip")
     )
@@ -312,14 +299,9 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
     region_dict = get_location_dict("region", french_geonames)
     dept_dict = get_location_dict("departement", french_geonames)
     with _open_connection(conn) as (local_conn, cursor):
-        cursor.execute("""
-                       SELECT name
-                       FROM sqlite_master
-                       WHERE type = 'table'
-                         AND name = 'locations'
-                       """)
+        cursor.execute(DB['exists'].format(table=table))
         if cursor.fetchone() is None:
-            create_database(local_conn)
+            create_database(local_conn, table)
 
         locs = []
         local_conn.execute("PRAGMA journal_mode = MEMORY")
@@ -343,32 +325,29 @@ def fill_database(conn: sqlite3.Connection = None) -> None:
                 score
             ))
             if len(locs) >= 10000:
-                cursor.executemany(sql, locs, )
+                cursor.executemany(DB['insert'].format(table=table), locs)
                 local_conn.commit()
                 locs.clear()
         if len(locs) > 0:  # last loop
-            cursor.executemany(sql, locs, )
+            cursor.executemany(DB['insert'].format(table=table), locs)
             local_conn.commit()
 
-    _vacuum_database(conn)
+    _vacuum_database(conn, table)
 
 
-def create_index(conn: sqlite3.Connection = None) -> None:
+def create_index(
+        conn: sqlite3.Connection | None = None,
+        table: str = "remote_geonames"
+) -> None:
     """Fonction à part pour créer l'index de la base de données."""
-    ch_conn = conn is not None
-    local_conn = sqlite3.connect(LOCAL_DB) if conn is None else conn
-    cursor = local_conn.cursor()
-
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_locations_nom ON locations(nom)"
-    )
-
-    local_conn.commit()
-    if not ch_conn:
-        local_conn.close()
+    with _open_connection(conn) as (local_conn, cursor):
+        cursor.execute(DB['index'].format(table=table))
+        local_conn.commit()
 
 
 def rebuild_database(clear: bool = False) -> None:
+    if os.path.isfile(LOCAL_DB):
+        os.remove(LOCAL_DB)
     gconn = sqlite3.connect(LOCAL_DB)
     create_database(gconn)
     fill_database(gconn)
@@ -384,30 +363,29 @@ def rebuild_database(clear: bool = False) -> None:
 
 def get_raw_geoname(
         name: str,
-        department: str = None,
-        region: str = None,
-        country: str = None,
-        conn: sqlite3.Connection = None
+        department: str = "",
+        region: str = "",
+        country: str = "",
+        conn: sqlite3.Connection | None = None,
+        table: str = "remote_geonames"
 ) -> list[tuple[str, str, str, str, float, float]] | None:
     """Récupère les informations d'un lieu dans la db."""
-    select = [
-        "SELECT *",
-        "FROM locations",
-        "WHERE nom = ?"
-    ]
+    select = DB['select'].format(table=table)
     params = [name]
     for pname, pval in [
         ("departement", department),
         ("region", region),
         ("pays", country)
     ]:
-        if pval is not None:
-            select += [f"AND {pname} = ?"]
+        if pval:
+            select = select + "\n" + DB['select_a'].format(col=pname)
             params += [pval]
 
     with _open_connection(conn) as (local_conn, cursor):
-        db_data = cursor.execute("\n".join(select), params).fetchall()
+        db_data = cursor.execute(select, params).fetchall()
         return db_data
 
+
 if "__main__" == __name__:
-    print(get_raw_geoname("Neuchâtel"))
+    # rebuild_database()
+    print(get_raw_geoname("Morges"))
