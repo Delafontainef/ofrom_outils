@@ -14,10 +14,10 @@ from dataclasses import asdict
 from tkinter import filedialog
 from tkinter import ttk
 
-from ofrom_outils.common import DATA, update_dc
+from ofrom_outils.common import DATA
 from ofrom_outils.common_types import Any, Path, Callable
 from ofrom_outils.gui.gui_models import CorMainData
-from ofrom_outils.gui.gui_ongl import CorOngl
+from ofrom_outils.gui.gui_ongl import CorOngl, update_dc
 from ofrom_outils.gui.gui_audio import CorAudio
 
 ONGL: dict[str, type[CorOngl]] = {

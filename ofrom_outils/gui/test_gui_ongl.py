@@ -1,22 +1,41 @@
 import tkinter as tk
 import unittest
 from dataclasses import dataclass
-from tkinter import ttk
 from typing import Any
 from unittest.mock import patch, Mock
 
 from ofrom_outils.gui.gui_ongl import (
+    update_dc,
     AbsPath, FilePath, DirPath, CheckOptions, RadioOptions,
     CorOngl
 )
 
-
 widget_type = type[tk.Widget]
+
 
 @dataclass
 class MockData:
     name: str
     value: int
+
+
+@dataclass
+class MockDepthData:
+    name: str
+    data: MockData
+
+
+class TestUpdateDc(unittest.TestCase):
+    def test_update_dc(self):
+        cl = MockDepthData("marsh", MockData("t", 1))
+        update_dc(cl, {
+            "bunk": "n",
+            "data": {
+                "name": "stet"
+            }
+        })
+        self.assertEqual(cl.data.name, "stet")
+        self.assertEqual(cl.data.value, 1)
 
 
 class TestPath(unittest.TestCase):
@@ -85,7 +104,7 @@ class TestPath(unittest.TestCase):
         self.assertIs(widget.setopen, tk.filedialog.askdirectory)
 
 
-def _buttons(widget, typ: widget_type=tk.Radiobutton):
+def _buttons(widget, typ: widget_type = tk.Radiobutton):
     return [
         w for w in widget.winfo_children()
         if isinstance(w, typ)
@@ -130,6 +149,10 @@ class TestCheckOptions(unittest.TestCase):
         self.assertFalse(widget.vals["move"].get())
         self.assertTrue(widget.vals["delete"].get())
 
+        widget.reset({})
+        self.assertEqual(len(_buttons(widget, tk.Checkbutton)), 0)
+        self.assertEqual(len(widget.vals), 0)
+
     def test_get(self):
         widget = CheckOptions(self.root, self.ops)
 
@@ -141,6 +164,12 @@ class TestCheckOptions(unittest.TestCase):
                 "delete": True,
             }
         )
+
+    def test_set(self):
+        widget = CheckOptions(self.root, self.ops)
+        widget.set("delete")
+
+        self.assertEqual(widget.vals.get("delete"), False)
 
     def test_checkboxes(self):
         widget = CheckOptions(self.root, self.ops)
@@ -187,7 +216,21 @@ class TestRadioOptions(unittest.TestCase):
         widget = RadioOptions(self.root, self.ops)
 
         self.assertEqual(len(_buttons(widget)), 3)
+        self.assertEqual(widget.val.get(), "delete")
+
+        widget.reset({})
+        self.assertEqual(len(_buttons(widget)), 0)
+        self.assertEqual(widget.val.get(), "")
+
+    def test_get(self):
+        widget = RadioOptions(self.root, self.ops)
+
         self.assertEqual(widget.get(), "delete")
+
+    def test_set(self):
+        widget = RadioOptions(self.root, self.ops)
+        widget.set("copy")
+        self.assertEqual(widget.get(), "copy")
 
     def test_radiobuttons(self):
         ops = {
@@ -254,6 +297,7 @@ class TestCorOngl(unittest.TestCase):
         self.ongl.set_data({"unknown": 123})
 
         self.assertFalse(hasattr(self.ongl.data, "unknown"))
+
 
 if __name__ == "__main__":
     unittest.main()

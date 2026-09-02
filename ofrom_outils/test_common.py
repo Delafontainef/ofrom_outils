@@ -5,7 +5,7 @@ from unittest.mock import patch, Mock, MagicMock
 from dataclasses import dataclass
 
 from ofrom_outils.common import (
-    kwarg, fix_lext, update_dc,
+    kwarg, fix_lext,
     iter_file, iter_all, get_files, iter_core, get_core,
     ensure_outdir, iter_top_tiers, iter_segs, get_top_tiers, get_spk,
     set_parent, call_praat, anon_ofrom_plus, ph_ofrom,
@@ -52,26 +52,6 @@ class TestFixLext(unittest.TestCase):
 class MockData:
     name: str
     value: int
-
-
-class TestUpdateDc(unittest.TestCase):
-    def test_update_dc(self):
-        @dataclass
-        class Data:
-            name: str = "old"
-            value: int = 1
-
-        obj = Data()
-
-        update_dc(obj, {
-            "name": "new",
-            "value": 42,
-            "unknown": "ignored",
-        })
-
-        self.assertEqual(obj.name, "new")
-        self.assertEqual(obj.value, 42)
-        self.assertFalse(hasattr(obj, "unknown"))
 
 
 @patch("ofrom_outils.common.fix_lext")

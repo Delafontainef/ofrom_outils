@@ -16,7 +16,7 @@ class CorAudioCData:
 class CorAudioMData:
     indir: str = ""
     outdir: str = ""
-    mean: int | None = None
+    mean: float | int | None = None
 
 
 @dataclass

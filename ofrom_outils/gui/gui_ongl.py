@@ -2,12 +2,28 @@ import os
 import re
 import tkinter as tk
 from abc import abstractmethod, ABC
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from tkinter import filedialog
 from typing import Generic, TypeVar
 
-from ofrom_outils.common import update_dc
 from ofrom_outils.common_types import Any, Path, Callable
+
+
+T = TypeVar("T")
+
+
+def update_dc(
+        obj: object,
+        data: dict[str, Any]
+) -> None:
+    for key, value in data.items():
+        if not hasattr(obj, key):
+            continue
+        current = getattr(obj, key)
+        if is_dataclass(current) and isinstance(value, dict):
+            update_dc(current, value)
+        else:
+            setattr(obj, key, value)
 
 
 class AbsPath(tk.Frame):
@@ -110,7 +126,20 @@ class CheckOptions(tk.Frame):
     ):
         super().__init__(parent)
         self.vals = {}
+        self.reset(opts, nb_cols)
 
+    def get(self):
+        return {k: v.get() for k, v in self.vals.items()}
+
+    def set(self, key: str):
+        if key not in self.vals:
+            return
+        self.vals[key] = True if self.vals[key] == False else False
+
+    def reset(self, opts: dict[str, list[str | bool]], nb_cols: int = 4):
+        self.vals = {}
+        for child in self.winfo_children():
+            child.destroy()
         for i, (key, (name, value)) in enumerate(opts.items()):
             r, c = divmod(i, nb_cols)
             val = tk.BooleanVar(self, value=value)
@@ -122,9 +151,6 @@ class CheckOptions(tk.Frame):
                 variable=val
             )
             b.grid(row=r, column=c, sticky=tk.W)
-
-    def get(self):
-        return {k: v.get() for k, v in self.vals.items()}
 
     def trace_add(self, mode, callback):
         return [
@@ -144,7 +170,18 @@ class RadioOptions(tk.Frame):
     ):
         super().__init__(parent)
         self.val = tk.StringVar(self)
+        self.reset(opts, nb_cols)
 
+    def get(self):
+        return self.val.get()
+
+    def set(self, key: str):
+        self.val.set(key)
+
+    def reset(self, opts: dict[str, list[str | bool]], nb_cols: int = 4):
+        self.val = tk.StringVar(self)
+        for child in self.winfo_children():
+            child.destroy()
         for i, (key, (name, value)) in enumerate(opts.items()):
             r, c = divmod(i, nb_cols)
             if value:
@@ -156,9 +193,6 @@ class RadioOptions(tk.Frame):
                 value=key
             )
             b.grid(row=r, column=c, sticky=tk.W)
-
-    def get(self):
-        return self.val.get()
 
 
 CorOnglData = TypeVar("CorOnglData")

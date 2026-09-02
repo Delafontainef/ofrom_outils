@@ -11,7 +11,7 @@ import time
 
 # from ofrom_outils.logs.log import log
 from ofrom_outils.common_types import (
-    Any, Callable, Iterator, Path, IterPath, IterCorp, MPList,
+    Callable, Iterator, Path, IterPath, IterCorp, MPList,
     Transcription, Tier, Segment
 )
 
@@ -97,13 +97,6 @@ def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
     if isinstance(l_ext, list):
         return [fix(ext) for ext in l_ext]
     return [fix(l_ext)]
-
-
-def update_dc(obj: object, data: dict[str, Any]):
-    """Updates a dataclass."""
-    for key, value in data.items():
-        if hasattr(obj, key):
-            setattr(obj, key, value)
 
 
 def iter_file(
