@@ -91,3 +91,36 @@ class TestCorAudio(unittest.TestCase):
         self.assertEqual(aud.data.m.indir, "testm")
         self.assertEqual(aud.data.c.opts['copy'], ['Copier', True])
 
+    def test_get_data(self):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.conv_opts.val.set("copy")
+        dat = aud.get_data()
+        self.assertEqual(dat["c"]["opts"], {
+            "copy": ["Copier", True],
+            "move": ["Déplacer", False],
+            "delete": ["Supprimer", False],
+        })
+
+    def test_set_data(self):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.set_data({
+            "c": {"opts": {
+                "new": ["Nouveau", True]
+            }}
+        })
+        self.assertEqual(aud.data.c.opts, {
+            "new": ["Nouveau", True]
+        })
+        self.assertEqual(aud.conv_opts.val.get(), "new")
+
+    @patch("ofrom_outils.gui.gui_audio.run_convert")
+    def test_convert(self, mock_conv):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.convert()
+        mock_conv.assert_called_once_with("", "", "delete")
+
+    @patch("ofrom_outils.gui.gui_audio.run_mean")
+    def test_mean(self, mock_mean):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.mean()
+        mock_mean.assert_called_once_with("", "", 5.31)

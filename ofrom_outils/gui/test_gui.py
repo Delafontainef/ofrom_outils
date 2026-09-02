@@ -295,9 +295,9 @@ class TestCorMain(unittest.TestCase):
                 "ofrom_outils.gui.gui.ONGL",
                 {"test": factory}
         ):
-            self.gui._add_ongl(0, "test", {})
-            self.gui._add_ongl(1, "test", {})
-            self.gui._add_ongl(2, "invalid", {})
+            self.gui.add_ongl(0, "test", {})
+            self.gui.add_ongl(1, "test", {})
+            self.gui.add_ongl(2, "invalid", {})
 
         self.assertEqual(self.gui.active, 1)
         compare = self.gui.ongl + [self.gui.plus_tab]
@@ -342,7 +342,7 @@ class TestCorMain(unittest.TestCase):
         try:
             with (
                 patch.object(self.gui, "_empty_ongl") as mock_empty,
-                patch.object(self.gui, "_add_ongl") as mock_add,
+                patch.object(self.gui, "add_ongl") as mock_add,
                 patch(
                     "ofrom_outils.gui.gui.update_dc"
                 ) as mock_update,

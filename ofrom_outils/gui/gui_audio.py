@@ -90,23 +90,27 @@ class CorAudio(CorOngl[CorAudioData]):
             command=self.mean
         )
 
-        convert.grid(row=0, column=0)
+        convert.grid(row=0, column=0, sticky="nsew")
         conv_paths.grid(row=0, column=0)
         self.conv_in.grid(row=0, column=0)
         self.conv_out.grid(row=0, column=1)
         self.conv_opts.grid(row=0, column=1)
         self.conv_button.grid(row=0, column=2)
-        mean.grid(row=0, column=1)
+        mean.grid(row=0, column=1, sticky="nsew")
         mean_paths.grid(row=0, column=0)
         self.mean_in.grid(row=0, column=0)
         self.mean_out.grid(row=0, column=1)
         mean_opts.grid(row=0, column=1)
         mean_label.grid(row=0, column=0)
-        mean_entry.grid(row=0, column=1)
+        mean_entry.grid(row=0, column=1, sticky="ew")
         mean_label.grid(row=0, column=0)
-
         self.mean_button.grid(row=0, column=2)
+
         self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+        mean.columnconfigure(0, weight=1)
+        mean.columnconfigure(1, weight=1)
+        mean_opts.columnconfigure(1, weight=1)
 
     def fill_data(self, data: dict[str, Any]) -> CorAudioData:
         dat = CorAudioData()

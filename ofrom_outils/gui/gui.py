@@ -35,31 +35,35 @@ class CorMenu(tk.Menu):
     ):
         super().__init__(parent, tearoff=0)
         self.parent = parent
-        menu1 = tk.Menu(self, tearoff=0)
-        menu1.add_command(label="Nouvel onglet",
+        files = tk.Menu(self, tearoff=0)
+        newtab = tk.Menu(files, tearoff=False)
+        newtab.add_command(
+            label="Audio",
+            command=lambda: commands['newtab'](-1, "audio", {})
+                        )
+        files.add_cascade(label="Nouvel onglet", menu=newtab)
+        files.add_command(label="Fermer l'onglet",
                           command=lambda: print("Not implemented"))
-        menu1.add_command(label="Fermer l'onglet",
-                          command=lambda: print("Not implemented"))
-        menu1.add_separator()
-        menu1.add_command(
+        files.add_separator()
+        files.add_command(
             label="Charger...",
             command=commands['load'],
             accelerator="Ctrl+O"
         )
-        menu1.add_command(label="Sauvegarder...", command=commands['save'])
-        menu1.add_command(
+        files.add_command(label="Sauvegarder...", command=commands['save'])
+        files.add_command(
             label="Sauvegarder sous...",
             command=commands['save_as'],
             accelerator="Ctrl+S"
         )
-        menu1.add_separator()
-        menu1.add_command(label="Options",
+        files.add_separator()
+        files.add_command(label="Options",
                           command=lambda: print("Not implemented"))
-        menu1.add_separator()
-        menu1.add_command(label="Quitter",
+        files.add_separator()
+        files.add_command(label="Quitter",
                           command=lambda: print("Not implemented"))
         menu2 = tk.Menu(self, tearoff=0)
-        self.add_cascade(label="Fichiers", menu=menu1)
+        self.add_cascade(label="Fichiers", menu=files)
         self.add_cascade(label="Aide", menu=menu2)
 
 
@@ -141,6 +145,7 @@ class CorMain(tk.Tk):
         super().__init__()
         self.menu = CorMenu(self,
                             commands={
+                                'newtab': self.add_ongl,
                                 'load': self.load_as,
                                 'save': self.save,
                                 'save_as': self.save_as
@@ -242,15 +247,15 @@ class CorMain(tk.Tk):
             widget.destroy()
         self.ongl.clear()
 
-    def _add_ongl(self, i: int, name: str, data: dict[str, Any]) -> None:
+    def add_ongl(self, i: int, name: str, data: dict[str, Any]) -> None:
         """Ajoute un onglet."""
         if name not in ONGL:
             return
-        i = max(0, min(i, len(self.ongl)))
+        i = len(self.ongl) if i < 0 else max(0, min(i, len(self.ongl)))
         self.ongl.insert(i, ONGL[name](self.champ, data, self.console.pyw))
         self.champ.insert(i, self.ongl[i], text=name)
         self.champ.select(self.ongl[i])
-        self.active = i
+        self.data.active = i
 
     def load(self, file_path: Path | None = None) -> None:
         """Charge les onglets (depuis un fichier JSON)."""
@@ -267,7 +272,7 @@ class CorMain(tk.Tk):
                 update_dc(self.data, dict_data)
                 self.set_geometry()
                 continue
-            self._add_ongl(i, dict_data.get("name"), dict_data)
+            self.add_ongl(i, dict_data.get("name"), dict_data)
 
     def load_as(self) -> None:
         """Charge les données en demandant le chemin du fichier JSON."""
