@@ -1,14 +1,29 @@
 import tkinter as tk
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from tkinter import ttk
 from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass
+class CorAudioCData:
+    indir: str = ""
+    outdir: str = ""
+    opts: dict[str, list[str | bool]] = field(default_factory=dict)
+
+
+@dataclass
+class CorAudioMData:
+    indir: str = ""
+    outdir: str = ""
+    mean: int | None = None
+
+
+@dataclass
 class CorAudioData:
     """Données pour l'interface audio."""
-    ...
+    c: CorAudioCData = field(default_factory=CorAudioCData)
+    m: CorAudioMData = field(default_factory=CorAudioMData)
 
 
 @dataclass

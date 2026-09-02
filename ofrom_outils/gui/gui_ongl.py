@@ -11,6 +11,8 @@ from ofrom_outils.common_types import Any, Path, Callable
 
 
 class AbsPath(tk.Frame):
+    """Composant pour la sélection de documents."""
+
     def __init__(
             self,
             parent: tk.Misc,
@@ -60,6 +62,8 @@ class AbsPath(tk.Frame):
 
 
 class FilePath(AbsPath):
+    """Sélection de fichier."""
+
     def __init__(
             self,
             parent: tk.Misc,
@@ -76,24 +80,9 @@ class FilePath(AbsPath):
         )
 
 
-class FilesPath(AbsPath):
-    def __init__(
-            self,
-            parent: tk.Misc,
-            label: str = "",
-            path: Path = "",
-            regex: str = r""
-    ):
-        super().__init__(
-            parent,
-            label,
-            path,
-            regex,
-            tk.filedialog.askopenfilenames
-        )
-
-
 class DirPath(AbsPath):
+    """Sélection de dossier."""
+
     def __init__(
             self,
             parent: tk.Misc,
@@ -108,6 +97,68 @@ class DirPath(AbsPath):
             regex,
             tk.filedialog.askdirectory
         )
+
+
+class CheckOptions(tk.Frame):
+    """Composant de CheckButtons pour les options."""
+
+    def __init__(
+            self,
+            parent: tk.Misc,
+            opts: dict[str, list[str | bool]],
+            nb_cols: int = 4
+    ):
+        super().__init__(parent)
+        self.vals = {}
+
+        for i, (key, (name, value)) in enumerate(opts.items()):
+            r, c = divmod(i, nb_cols)
+            val = tk.BooleanVar(self, value=value)
+            self.vals[key] = val
+
+            b = tk.Checkbutton(
+                self,
+                text=name,
+                variable=val
+            )
+            b.grid(row=r, column=c, sticky=tk.W)
+
+    def get(self):
+        return {k: v.get() for k, v in self.vals.items()}
+
+    def trace_add(self, mode, callback):
+        return [
+            var.trace_add(mode, callback)
+            for var in self.vals.values()
+        ]
+
+
+class RadioOptions(tk.Frame):
+    """Composant de RadioButtons pour les options."""
+
+    def __init__(
+            self,
+            parent: tk.Misc,
+            opts: dict[str, list[str | bool]],
+            nb_cols: int = 4
+    ):
+        super().__init__(parent)
+        self.val = tk.StringVar(self)
+
+        for i, (key, (name, value)) in enumerate(opts.items()):
+            r, c = divmod(i, nb_cols)
+            if value:
+                self.val.set(key)
+            b = tk.Radiobutton(
+                self,
+                text=name,
+                variable=self.val,
+                value=key
+            )
+            b.grid(row=r, column=c, sticky=tk.W)
+
+    def get(self):
+        return self.val.get()
 
 
 CorOnglData = TypeVar("CorOnglData")
