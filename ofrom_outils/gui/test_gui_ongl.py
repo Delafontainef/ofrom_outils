@@ -1,6 +1,7 @@
 import tkinter as tk
 import unittest
 from dataclasses import dataclass
+from tkinter import ttk
 from typing import Any
 from unittest.mock import patch, Mock
 
@@ -9,6 +10,8 @@ from ofrom_outils.gui.gui_ongl import (
     CorOngl
 )
 
+
+widget_type = type[tk.Widget]
 
 @dataclass
 class MockData:
@@ -82,15 +85,15 @@ class TestPath(unittest.TestCase):
         self.assertIs(widget.setopen, tk.filedialog.askdirectory)
 
 
-def _buttons(widget):
+def _buttons(widget, typ: widget_type=tk.Radiobutton):
     return [
         w for w in widget.winfo_children()
-        if isinstance(w, tk.Radiobutton)
+        if isinstance(w, typ)
     ]
 
 
-def _test_grid(self, widget):
-    buttons = _buttons(widget)
+def _test_grid(self, widget, typ):
+    buttons = _buttons(widget, typ)
 
     self.assertEqual(buttons[0].grid_info()["row"], 0)
     self.assertEqual(buttons[0].grid_info()["column"], 0)
@@ -118,7 +121,7 @@ class TestCheckOptions(unittest.TestCase):
     def test_init(self):
         widget = CheckOptions(self.root, self.ops)
 
-        self.assertEqual(len(_buttons(widget)), 3)
+        self.assertEqual(len(_buttons(widget, tk.Checkbutton)), 3)
         self.assertEqual(len(widget.vals), 3)
         self.assertIn("copy", widget.vals)
         self.assertIn("move", widget.vals)
@@ -142,7 +145,7 @@ class TestCheckOptions(unittest.TestCase):
     def test_checkboxes(self):
         widget = CheckOptions(self.root, self.ops)
 
-        buttons = _buttons(widget)
+        buttons = _buttons(widget, tk.Checkbutton)
         self.assertEqual(len(buttons), 3)
         self.assertFalse(widget.get()["move"])
 
@@ -151,7 +154,7 @@ class TestCheckOptions(unittest.TestCase):
 
     def test_grid(self):
         widget = CheckOptions(self.root, self.ops, nb_cols=2)
-        _test_grid(self, widget)
+        _test_grid(self, widget, tk.Checkbutton)
 
     def test_trace(self):
         widget = CheckOptions(self.root, self.ops)
@@ -203,7 +206,7 @@ class TestRadioOptions(unittest.TestCase):
 
     def test_grid(self):
         widget = RadioOptions(self.root, self.ops, nb_cols=2)
-        _test_grid(self, widget)
+        _test_grid(self, widget, tk.Radiobutton)
 
 
 class MockOngl(CorOngl[MockData]):
@@ -251,3 +254,6 @@ class TestCorOngl(unittest.TestCase):
         self.ongl.set_data({"unknown": 123})
 
         self.assertFalse(hasattr(self.ongl.data, "unknown"))
+
+if __name__ == "__main__":
+    unittest.main()
