@@ -253,7 +253,7 @@ class CorMain(tk.Tk):
             return
         i = len(self.ongl) if i < 0 else max(0, min(i, len(self.ongl)))
         self.ongl.insert(i, ONGL[name](self.champ, data, self.console.pyw))
-        self.champ.insert(i, self.ongl[i], text=name)
+        self.champ.insert(i, self.ongl[i], text=name, sticky="nsew")
         self.champ.select(self.ongl[i])
         self.data.active = i
 

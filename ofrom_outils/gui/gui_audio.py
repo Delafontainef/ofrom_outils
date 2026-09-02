@@ -41,7 +41,7 @@ class CorAudio(CorOngl[CorAudioData]):
             pyw: Callable[[str, str], None]
     ):
         super().__init__(parent, data, pyw)
-        convert = tk.Frame(self)
+        convert = tk.Frame(self, bd=1, relief="groove", padx=8, pady=8)
         conv_paths = tk.Frame(convert)
         self.conv_in = DirPath(
             conv_paths,
@@ -59,7 +59,7 @@ class CorAudio(CorOngl[CorAudioData]):
             text="Convertir",
             command=self.convert
         )
-        mean = tk.Frame(self)
+        mean = tk.Frame(self, bd=1, relief="groove", padx=8, pady=8)
         mean_paths = tk.Frame(mean)
         self.mean_in = DirPath(
             mean_paths,
@@ -73,7 +73,7 @@ class CorAudio(CorOngl[CorAudioData]):
         )
         mean_opts = tk.Frame(mean)
         vcmd = (self.register(validate_mean), "%P")
-        mean_label = tk.Label(mean_opts, text="Moyenne : ", anchor="w")
+        mean_label = tk.Label(mean_opts, text="Volume moyen : ", anchor="w")
         self.mean_value = tk.StringVar(
             mean_opts,
             self.data.m.mean if self.data.m.mean is not None else ""
@@ -91,25 +91,26 @@ class CorAudio(CorOngl[CorAudioData]):
         )
 
         convert.grid(row=0, column=0, sticky="nsew")
-        conv_paths.grid(row=0, column=0)
-        self.conv_in.grid(row=0, column=0)
-        self.conv_out.grid(row=0, column=1)
-        self.conv_opts.grid(row=0, column=1)
-        self.conv_button.grid(row=0, column=2)
-        mean.grid(row=0, column=1, sticky="nsew")
-        mean_paths.grid(row=0, column=0)
-        self.mean_in.grid(row=0, column=0)
-        self.mean_out.grid(row=0, column=1)
-        mean_opts.grid(row=0, column=1)
-        mean_label.grid(row=0, column=0)
-        mean_entry.grid(row=0, column=1, sticky="ew")
-        mean_label.grid(row=0, column=0)
-        self.mean_button.grid(row=0, column=2)
+        conv_paths.grid(row=0, column=0, sticky="nsew")
+        self.conv_in.grid(row=0, column=0, sticky="ew")
+        self.conv_out.grid(row=1, column=0, sticky="ew")
+        self.conv_opts.grid(row=1, column=0, sticky="nsew")
+        self.conv_button.grid(row=2, column=0)
+        mean.grid(row=1, column=0, sticky="nsew")
+        mean_paths.grid(row=0, column=0, sticky="nsew")
+        self.mean_in.grid(row=0, column=0, sticky="ew")
+        self.mean_out.grid(row=1, column=0, sticky="ew")
+        mean_opts.grid(row=1, column=0, sticky="nsew")
+        mean_label.grid(row=0, column=0, sticky="e")
+        mean_entry.grid(row=0, column=1, sticky="w")
+        self.mean_button.grid(row=2, column=0)
 
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
+        conv_paths.columnconfigure(0, weight=1)
+        mean_paths.columnconfigure(0, weight=1)
+        convert.columnconfigure(0, weight=1)
         mean.columnconfigure(0, weight=1)
-        mean.columnconfigure(1, weight=1)
+        mean_opts.columnconfigure(0, weight=1)
         mean_opts.columnconfigure(1, weight=1)
 
     def fill_data(self, data: dict[str, Any]) -> CorAudioData:

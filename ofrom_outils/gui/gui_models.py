@@ -9,7 +9,11 @@ from typing import Any, Protocol, runtime_checkable
 class CorAudioCData:
     indir: str = ""
     outdir: str = ""
-    opts: dict[str, list[str | bool]] = field(default_factory=dict)
+    opts: dict[str, list[str | bool]] = field(default_factory=lambda: {
+        "wav": ["WAV", True],
+        "mp3": ["MP3", False],
+        "m4a": ["M4A", False]
+    })
 
 
 @dataclass

@@ -52,6 +52,11 @@ class AbsPath(tk.Frame):
             text="...",
             command=self.set_path_as
         )
+        self.label.grid(row=0, column=0, sticky="w")
+        self.entry.grid(row=0, column=1, sticky="ew")
+        self.button.grid(row=0, column=2, sticky="e")
+        self.columnconfigure(1, weight=1)
+
 
     def format_path(self, npath: Path) -> Path:
         """Formatte le chemin pour l'affichage."""
@@ -150,7 +155,9 @@ class CheckOptions(tk.Frame):
                 text=name,
                 variable=val
             )
-            b.grid(row=r, column=c, sticky=tk.W)
+            b.grid(row=r, column=c, sticky="ew")
+            self.columnconfigure(c, weight=1)
+            self.rowconfigure(r, weight=1)
 
     def trace_add(self, mode, callback):
         return [
@@ -192,7 +199,9 @@ class RadioOptions(tk.Frame):
                 variable=self.val,
                 value=key
             )
-            b.grid(row=r, column=c, sticky=tk.W)
+            b.grid(row=r, column=c, sticky="ew")
+            self.columnconfigure(c, weight=1)
+            self.rowconfigure(r, weight=1)
 
 
 CorOnglData = TypeVar("CorOnglData")
@@ -211,6 +220,9 @@ class CorOngl(tk.Frame, Generic[CorOnglData], ABC):
         self.parent = parent
         self.data = self.fill_data(data)
         self.pyw = pyw
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=1)
 
     @abstractmethod
     def fill_data(self, data: dict[str, Any]) -> CorOnglData:
