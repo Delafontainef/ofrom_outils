@@ -16,9 +16,9 @@ from tkinter import ttk
 
 from ofrom_outils.common import DATA
 from ofrom_outils.common_types import Any, Path, Callable
+from ofrom_outils.gui.gui_audio import CorAudio
 from ofrom_outils.gui.gui_models import CorMainData
 from ofrom_outils.gui.gui_ongl import CorOngl, update_dc
-from ofrom_outils.gui.gui_audio import CorAudio
 
 ONGL: dict[str, type[CorOngl]] = {
     'audio': CorAudio
@@ -40,7 +40,7 @@ class CorMenu(tk.Menu):
         newtab.add_command(
             label="Audio",
             command=lambda: commands['newtab'](-1, "audio", {})
-                        )
+        )
         files.add_cascade(label="Nouvel onglet", menu=newtab)
         files.add_command(label="Fermer l'onglet",
                           command=lambda: print("Not implemented"))
@@ -114,9 +114,13 @@ class CorConsole(tk.Frame):
     def write(self, txt: str, mode: str = "a"):
         """Écrit dans la console."""
         with self.activate():
-            if mode == "a":  # écrire à la fin
+            if (
+                    mode == "a" or
+                    mode == "w" and 'w' not in self.text.mark_names()
+            ):  # écrire à la fin
                 self.text.insert("end", txt)
-            elif mode == "w":  # écrire au marqueur
+                self.mark()
+            elif mode == "w" and 'w' in self.text.mark_names():  # réécrire
                 self.text.delete("w", "end")
                 self.text.insert("w", txt)
             self.text.see("end")  # voir la fin du texte
@@ -289,7 +293,7 @@ class CorMain(tk.Tk):
         """Sauvegarde les onglets (dans un fichier JSON)."""
         save_file = file_path if file_path is not None \
             else self.data.save_file
-        if not os.path.isfile(save_file):  # ask user for save location
+        if not save_file:  # ask user for save location
             self.save_as()
             return
         json_data: dict[str, dict[str, Any]] = {

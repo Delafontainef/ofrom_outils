@@ -285,12 +285,13 @@ def call_praat(script: str, args: list[str]) -> None:
     """Appelle un script Praat depuis Python.
        - script     (str) peut être nom (sans extension) ou Path
        - args       (list<str>) liste d'arguments pour le script
+       Attention : utilise '--FULL-TRUST'. Vérifier le script Praat.
     """
     praat = os.path.join(PRAAT, "Praat.exe")
     script = script + ".praat" if not script.endswith(".praat") else script
     if not os.path.isfile(script):
         script = os.path.join(PRAAT, script)
-    subprocess.run([praat, '--run', script] + args)
+    subprocess.run([praat, '--FULL-TRUST', '--run', script] + args)
 
 
 def anon_ofrom_plus(paths: list[Path]) -> None:

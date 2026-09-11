@@ -341,7 +341,7 @@ class TestCallPraat(unittest.TestCase):
         call_praat("script", [])
         mock_sproc.run.assert_called_with([
             os.path.join("praatpath", "Praat.exe"),
-            '--run', "script.praat"
+            '--FULL-TRUST', '--run', "script.praat"
         ])
 
 

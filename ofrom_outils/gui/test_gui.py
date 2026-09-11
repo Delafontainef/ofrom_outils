@@ -299,15 +299,15 @@ class TestCorMain(unittest.TestCase):
             self.gui.add_ongl(1, "test", {})
             self.gui.add_ongl(2, "invalid", {})
 
-        self.assertEqual(self.gui.active, 1)
+        self.assertEqual(self.gui.data.active, 1)
         compare = self.gui.ongl + [self.gui.plus_tab]
         for i, tab in enumerate(self.gui.champ.tabs()):
             self.assertIs(self.gui.champ.nametowidget(tab), compare[i])
         tab = self.gui.champ.nametowidget(
-            self.gui.champ.tabs()[self.gui.active]
+            self.gui.champ.tabs()[self.gui.data.active]
         )
         self.assertIs(
-            self.gui.ongl[self.gui.active],
+            self.gui.ongl[self.gui.data.active],
             tab
         )
 
@@ -381,37 +381,26 @@ class TestCorMain(unittest.TestCase):
             mock_load.assert_called_once_with("test.json")
             self.assertEqual(self.gui.data.save_file, "test.json")
 
-    def test_save(self):
+    @patch("ofrom_outils.gui.gui.open", new_callable=mock_open)
+    @patch("ofrom_outils.gui.gui.json.dump")
+    def test_save(self, mock_dump, m):
         self.gui = CorMain()
         with (patch.object(self.gui, "save_as") as mock_save_as):
             self.gui.save("missing.json")
-            mock_save_as.assert_called_once()
-
-        with (
-            patch(
-                "ofrom_outils.gui.gui.os.path.isfile",
-                return_value=False
-            ) as mock_isfile,
-            patch.object(self.gui, "save_as"),
-        ):
-            self.gui.save("saved.json")
-        mock_isfile.assert_called_once_with("saved.json")
+            mock_save_as.assert_not_called()
+        mock_dump.reset_mock()
 
         ongl1 = Mock()
         ongl1.get_data.return_value = {"name": "A", "value": 1}
         ongl2 = Mock()
         ongl2.get_data.return_value = {"name": "B", "value": 2}
         self.gui.ongl = [ongl1, ongl2]
-        m = mock_open()
         with (
             patch(
                 "ofrom_outils.gui.gui.os.path.isfile",
                 return_value=True
             ),
-            patch("builtins.open", m),
-            patch(
-                "ofrom_outils.gui.gui.json.dump"
-            ) as mock_dump
+            patch("builtins.open", m)
         ):
             self.gui.save("test.json")
 

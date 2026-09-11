@@ -3,7 +3,7 @@ Types communs.
 """
 
 from collections.abc import Sequence, MutableSequence
-from typing import Any, IO, TypeVar, Iterator, Callable, Self
+from typing import Any, IO, TypeVar, Iterator, Callable, Self, cast
 
 from corflow.Transcription import Transcription, Tier, Segment
 from openpyxl.cell import Cell
@@ -15,6 +15,7 @@ type IterPath = tuple[str, str, str, Path]
 type IterCorp = tuple[str, str, str, str, Path]  # same preceded by 'corpus'
 type PathDict = dict[str, Path]  # key, path
 type GDict = dict[str, str | list | dict]
+type Pyw = Callable[[str, str], None] | Path | None
 
 type Row = Sequence[Cell]
 
@@ -25,8 +26,9 @@ type MPOutput = list[Any]
 type MPList = MutableSequence
 
 __all__ = [
-    "Any", "IO", "TypeVar", "Iterator", "Callable", "Self",
+    "Any", "IO", "TypeVar", "Iterator", "Callable", "Self", "cast",
     "Sequence", "MutableSequence", "Cell", "Worksheet", "Transcription",
     "Tier", "Segment", "Path", "IterPath", "IterCorp", "PathDict",
-    "GDict", "Row", "PathList", "MajData", "MajGUI", "MPOutput", "MPList"
+    "GDict", "Pyw",
+    "Row", "PathList", "MajData", "MajGUI", "MPOutput", "MPList"
 ]

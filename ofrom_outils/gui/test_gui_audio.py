@@ -14,8 +14,10 @@ class TestAudioStaticFunctions(unittest.TestCase):
         self.assertEqual(validate_mean('-12.136'), True)
         self.assertEqual(validate_mean('a'), False)
 
+    @patch("ofrom_outils.gui.gui_audio.LOG")
     @patch("ofrom_outils.gui.gui_audio.all_audio_convert")
-    def test_run_convert(self, mock_conv):
+    def test_run_convert(self, mock_conv, mock_log):
+        mock_log.clear.return_value = None
         run_convert("test", "test2", "typ")
         mock_conv.assert_called_once_with(
             "test",
@@ -23,7 +25,8 @@ class TestAudioStaticFunctions(unittest.TestCase):
             "typ",
             False,
             False,
-            False
+            True,
+            mock_log
         )
         mock_conv.reset_mock()
         run_convert("test", "test", "typ")
@@ -33,11 +36,14 @@ class TestAudioStaticFunctions(unittest.TestCase):
             "typ",
             True,
             False,
-            False
+            True,
+            mock_log
         )
 
+    @patch("ofrom_outils.gui.gui_audio.LOG")
     @patch("ofrom_outils.gui.gui_audio.all_audio_mean")
-    def test_run_mean(self, mock_mean):
+    def test_run_mean(self, mock_mean, mock_log):
+        mock_log.clear.return_value = None
         run_mean("test", "test2", -1.3)
         mock_mean.assert_called_once_with(
             "test",
@@ -45,7 +51,8 @@ class TestAudioStaticFunctions(unittest.TestCase):
             None,
             -1.3,
             False,
-            False
+            True,
+            mock_log
         )
         mock_mean.reset_mock()
         run_mean("test", "test", None)
@@ -55,7 +62,8 @@ class TestAudioStaticFunctions(unittest.TestCase):
             None,
             None,
             True,
-            False
+            True,
+            mock_log
         )
 
 

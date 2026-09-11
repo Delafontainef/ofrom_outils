@@ -1,7 +1,7 @@
 import os
 import sys
 
-from ofrom_outils.common_types import IO, Any
+from ofrom_outils.common_types import IO, Path, Pyw
 
 
 def log(txt: str, end: str = " " * 40 + "\r", verbose: bool = True):
@@ -10,7 +10,7 @@ def log(txt: str, end: str = " " * 40 + "\r", verbose: bool = True):
         print(txt, end=end)
 
 
-def _w(txt: str, wf: IO = None) -> None:
+def _w(txt: str, wf: IO | None = None) -> None:
     """Écrit dans un fichier/terminal."""
     wf = sys.stdout if wf is None else wf
     wf.write(txt)
@@ -30,10 +30,14 @@ class Log:
        Note : requiert de lire le buffer IO, donc peut causer des erreurs.
     """
 
-    def __init__(self):
+    def __init__(
+            self,
+            file_path: Path = "",
+            pyw: Pyw = None,
+    ):
         self.cursor = [1, 0]  # cursor start at line-1, column-0
-        self.file_path = ""  # path to a log file
-        self.pyw = None  # object to write to
+        self.file_path: Path = file_path  # path to a log file
+        self.pyw: Pyw = pyw  # object to write to
         self._setwu()  # cross-platform library setup
 
         # Support #
@@ -127,7 +131,7 @@ class Log:
             wf.write(txt)
 
     def log(self,
-            txt: str, pyw: Any = None, mode: str = "a"
+            txt: str, pyw: Pyw = None, mode: str = "a", verbose: bool = True
             ) -> None:
         """Écrit dans 'pyw'.
            - txt        (str) le texte à écrire/afficher.
@@ -136,11 +140,16 @@ class Log:
                         (object) une instance, p.ex. GUI...
            - mode       (str) le mode d'écriture, qui dépend de 'pyw'.
         """
-        pyw = self.pyw if (pyw is None) else pyw  # try instance object
-        pyw = self.prt if (pyw is None) else pyw  # default to terminal
-        if isinstance(pyw, str):  # file log case
+        if not verbose: # do nothing
+            return
+        pyw = self.pyw if (pyw is None) else pyw  # custom log function
+        if isinstance(pyw, str): # new log file
             self.file_path = pyw if pyw else self.file_path
-            self.write(txt, mode=mode)
+            pyw = self.write
+        elif pyw is None and self.file_path: # old log file
+            pyw = self.write
+        elif pyw is None: # terminal
+            pyw = self.prt
         try:
             pyw(txt, mode=mode)
         except Exception as e:

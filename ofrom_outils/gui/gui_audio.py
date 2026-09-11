@@ -1,4 +1,5 @@
 import re
+import threading
 import tkinter as tk
 from dataclasses import asdict
 
@@ -8,6 +9,9 @@ from ofrom_outils.gui.gui_ongl import (
 )
 from ofrom_outils.gui.gui_models import CorAudioData
 from ofrom_outils.audio.audio import all_audio_convert, all_audio_mean
+from ofrom_outils.logs.log import Log
+
+LOG = Log()
 
 
 def validate_mean(val: str) -> bool:
@@ -20,7 +24,11 @@ def run_convert(
         typ: str
 ) -> None:
     rem = True if path == npath else False
-    all_audio_convert(path, npath, typ, rem, False, False)
+    LOG.clear()
+    threading.Thread(
+        target=all_audio_convert,
+        args=(path, npath, typ, rem, False, True, LOG)
+    ).start()
 
 
 def run_mean(
@@ -29,7 +37,10 @@ def run_mean(
         mean: int | float | None
 ) -> None:
     rem = True if path == npath else False
-    all_audio_mean(path, npath, None, mean, rem, False)
+    LOG.clear()
+    all_audio_mean(
+        path, npath, None, mean, rem, True, LOG
+    )
 
 
 class CorAudio(CorOngl[CorAudioData]):
@@ -41,6 +52,8 @@ class CorAudio(CorOngl[CorAudioData]):
             pyw: Callable[[str, str], None]
     ):
         super().__init__(parent, data, pyw)
+        global LOG
+        LOG.pyw = pyw
         convert = tk.Frame(self, bd=1, relief="groove", padx=8, pady=8)
         conv_paths = tk.Frame(convert)
         self.conv_in = DirPath(

@@ -32,13 +32,14 @@ Note: Normalement sécurisé mais préférer convertir vers un dossier à part,
 
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 
 from ofrom_outils.common import CORE, FFMPEG, kwarg, iter_all
-from ofrom_outils.common_types import (Callable, Path)
-from ofrom_outils.logs.log import log
+from ofrom_outils.common_types import (Callable, Path, cast)
+from ofrom_outils.logs.log import Log
 
 """Constantes globales
 clé         type        description
@@ -110,7 +111,8 @@ def probe(path: Path, ch_all: bool = False) -> ProbeResult:
     def read_all(d_ares: ProbeResult) -> ProbeResult:
         res = subprocess.Popen([FFM, "-i", path, "-f", "null", "-"],
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        txt = res.stdout.read().decode("utf-8")
+        txt = res.stdout.read().decode("utf-8") if res.stdout is not None \
+            else ""
         txt = txt.split("Duration: ", 1)[1].split("Stream mapping", 1)[0]
         dur = txt.split(",", 1)[0]
         l_dur = dur.split(":")
@@ -186,7 +188,7 @@ def subp(
             argsa,
             shell=False, stdout=None, stderr=None
         )
-        os.replace(tmp, npath)
+        shutil.move(tmp, npath)
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
@@ -200,7 +202,7 @@ def subp(
     # --------------#
 
 
-def audio_level(path: Path) -> tuple[float| None, float| None]:
+def audio_level(path: Path) -> tuple[float | None, float | None]:
     """Renvoie le volume moyen/maximum d'un fichier en dB."""
     res = subprocess.run(f"{FFM} -i \"{path}\" " +
                          "-af volumedetect -f null /dev/null",
@@ -215,16 +217,19 @@ def audio_level(path: Path) -> tuple[float| None, float| None]:
 
 def all_audio_level(
         path: Path,
-        ch_file: str = "", ch_all: bool = False,
-        verbose: bool = True
+        ch_file: str = "",
+        ch_all: bool = False,
+        verbose: bool = True,
+        log: Log | None = None
 ) -> AudioLevel:
     """Vérifie le volume audio d'une série de fichiers."""
     l_ch, g_mean = [], 0.
+    log = Log() if not log else log
     for fi, ext, file, path in iter_all(path, l_ext=L_EXT):  # check all files
         ch, fi, ext, file, path = check(fi, ext, file, path)  # conditions
         if not ch:
             continue
-        log(fi, verbose=verbose)
+        log.log(fi, verbose=verbose)
         mean_vol, max_vol = audio_level(path)
         g_mean += mean_vol
         l_ch.append((fi, path, mean_vol, max_vol))
@@ -268,7 +273,10 @@ def all_audio_mean(
         path: Path, npath: Path,
         l_out: None | str | list = None,
         mean: None | float = None,
-        rem: bool = True, verbose: bool = True, **_kwargs
+        rem: bool = True,
+        verbose: bool = True,
+        log: Log | None = None,
+        **_kwargs
 ) -> None:
     """Lance 'audio_mean' sur les fichiers de 'path' correspondant à 'l_out'."""
 
@@ -286,18 +294,19 @@ def all_audio_mean(
         wf.close()
         return l_res
 
+    log = Log() if not log else log
     d_out = {}
     if isinstance(l_out, str):  # file to list
         l_out = to_list(l_out)
     elif l_out is None:  # get audio levels
-        l_out = all_audio_level(path)[0]
+        l_out = all_audio_level(path, verbose=False)[0]
     for fi, mes, mean_vol, g_mean, sd in l_out:  # fit l_out in d_out
         d_out[fi] = (mean_vol, g_mean if not mean else mean)
     for fi, ext, file, path in iter_all(path):  # process
         ch, fi, ext, file, path = check(fi, ext, file, path)
         if (not ch) or (fi not in d_out):
             continue
-        log(fi, verbose=verbose)
+        log.log(fi, verbose=verbose)
         mean_vol, g_mean = d_out[fi]
         audio_mean(path, os.path.join(npath, file), mean_vol, g_mean, ext, rem)
 
@@ -305,11 +314,18 @@ def all_audio_mean(
     # --------- #
 
 
-def audio_cut(path: Path, npath: Path, s: float, e: float,
-              verbose=False) -> None:
+def audio_cut(
+        path: Path,
+        npath: Path,
+        s: float,
+        e: float,
+        verbose=False,
+        log: Log | None = None
+) -> None:
     """(Legacy) Découpe le son avec ffmpeg."""
+    log = Log() if not log else log
     ns, ne = _to_time(s), _to_time(e)
-    log(f"{s}, {e}, {ns}, {ne}", verbose=verbose)
+    log.log(f"{s}, {e}, {ns}, {ne}", verbose=verbose)
     subp(path, npath, os.path.splitext(path)[1],
          [FFM, "-hide_banner", "-stats", "-loglevel", "error", "-y",
           "-i", path, "-ss", f"{ns}", "-to", f"{ne}"], False)
@@ -367,9 +383,13 @@ D_F = {"wav": (to_wav, ".wav"),
 
 
 def all_audio_convert(
-        path: Path = "", npath: Path = "",
-        typ: str = "wav", rem: bool = False, ch_all: bool = False,
-        verbose: bool = True
+        path: Path = "",
+        npath: Path = "",
+        typ: str = "wav",
+        rem: bool = False,
+        ch_all: bool = False,
+        verbose: bool = True,
+        log: Log | None = None
 ) -> None:
     """
     Convertit dans le format 'typ'.
@@ -381,18 +401,18 @@ def all_audio_convert(
     """
     path = CORE if not path else path
     npath = path if not npath else npath
+    log = Log() if not log else log
+    log.log(f"Conversion ({typ}): ", verbose=verbose)
     for fi, ext, file, path in iter_all(path, l_ext=[]):
         ch, fi, ext, file, path = check(fi, ext, file, path)  # conditions
         if not ch:
             continue
-            # main task
-        out_tmp: str = os.path.dirname(npath)
-        f, n_ext = D_F.get(typ)
-        log(path, "\n", verbose)
-        f(path, os.path.join(out_tmp, fi + n_ext), rem, ch_all)
+        f, n_ext = D_F[typ]
+        log.log(path, mode="w", verbose=verbose)
+        f(path, os.path.join(npath, fi + n_ext), rem, ch_all)
 
 
-def args(argv: list[str]) -> tuple[Callable, dict[str, str]]:
+def args(argv: list[str]) -> tuple[Callable | None, dict[str, str | bool]]:
     """Gère sys.argv."""
     d_func = {
         "mean": all_audio_mean,
@@ -411,7 +431,7 @@ def args(argv: list[str]) -> tuple[Callable, dict[str, str]]:
         elif i < la:
             d_args[k] = argsa[i]
     funca = d_args.pop('function')
-    funca = d_func[funca] if funca in d_func else None
+    funca = d_func.get(cast(str, funca))
     d_args['path'] = d_args.pop('indir')  # key renaming
     d_args['npath'] = d_args.pop('outdir')
     return funca, d_args
@@ -419,11 +439,12 @@ def args(argv: list[str]) -> tuple[Callable, dict[str, str]]:
 
 if __name__ == "__main__":
     func, kwargs = args(sys.argv)
+    logger = Log()
     if func is None:  # manual code here...
         sys.exit()
     elif not os.path.isdir(kwargs['path']):  # invalid path
-        log(f"Missing arguments.\nindir='{kwargs['path']}'\n" +
-            f"outdir='{kwargs['npath']}'", end="\n")
+        logger.log(f"Missing arguments.\nindir='{kwargs['path']}'\n" +
+                   f"outdir='{kwargs['npath']}'\n")
         sys.exit()
     elif not os.path.isdir(kwargs['npath']):  # same folder
         kwargs['npath'] = kwargs['path']
