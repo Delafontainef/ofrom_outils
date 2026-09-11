@@ -132,3 +132,6 @@ class TestCorAudio(unittest.TestCase):
         aud = CorAudio(self.root, self.data, self.pyw)
         aud.mean()
         mock_mean.assert_called_once_with("", "", 5.31)
+
+if __name__ == "__main__":
+    unittest.main()

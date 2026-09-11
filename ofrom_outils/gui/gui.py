@@ -42,8 +42,7 @@ class CorMenu(tk.Menu):
             command=lambda: commands['newtab'](-1, "audio", {})
         )
         files.add_cascade(label="Nouvel onglet", menu=newtab)
-        files.add_command(label="Fermer l'onglet",
-                          command=lambda: print("Not implemented"))
+        files.add_command(label="Fermer l'onglet", command=commands['remtab'])
         files.add_separator()
         files.add_command(
             label="Charger...",
@@ -150,6 +149,7 @@ class CorMain(tk.Tk):
         self.menu = CorMenu(self,
                             commands={
                                 'newtab': self.add_ongl,
+                                'remtab': self.rem_ongl,
                                 'load': self.load_as,
                                 'save': self.save,
                                 'save_as': self.save_as
@@ -260,6 +260,18 @@ class CorMain(tk.Tk):
         self.champ.insert(i, self.ongl[i], text=name, sticky="nsew")
         self.champ.select(self.ongl[i])
         self.data.active = i
+
+    def rem_ongl(self, i: int = -1):
+        """Retire l'onglet à l'index 'i'."""
+        lo = len(self.ongl)
+        if lo == 0: # rien à retirer
+            return
+        i = self.data.active if i < 0 or i >= lo else i
+        ongl = self.ongl.pop(i)
+        self.champ.forget(ongl)
+        ongl.destroy()
+        if 0 < i <= self.data.active:
+            self.data.active -= 1
 
     def load(self, file_path: Path | None = None) -> None:
         """Charge les onglets (depuis un fichier JSON)."""

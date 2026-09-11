@@ -25,6 +25,8 @@ class TestCorMenu(unittest.TestCase):
         self.root = tk.Tk()
         self.root.withdraw()
         self.menu = CorMenu(self.root, {
+            "newtab": lambda: None,
+            "remtab": lambda: None,
             "load": lambda: None,
             "save": lambda: None,
             "save_as": lambda: None,

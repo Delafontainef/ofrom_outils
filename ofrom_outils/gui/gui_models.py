@@ -26,6 +26,7 @@ class CorAudioMData:
 @dataclass
 class CorAudioData:
     """Données pour l'interface audio."""
+    name: str = "audio"
     c: CorAudioCData = field(default_factory=CorAudioCData)
     m: CorAudioMData = field(default_factory=CorAudioMData)
 
