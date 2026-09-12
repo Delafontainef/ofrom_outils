@@ -120,6 +120,42 @@ class DirPath(AbsPath):
         )
 
 
+class Options(tk.Frame):
+    def __init__(self, parent, title="Options"):
+        super().__init__(parent)
+
+        header = tk.Frame(self)
+        label = tk.Label(header, text=title)
+        self.button = tk.Button(
+            header,
+            text=" - ",
+            command=self.toggle,
+        )
+        self.content = tk.Frame(
+            self,
+            borderwidth=1,
+            relief=tk.GROOVE,
+        )
+
+        self.columnconfigure(0, weight=1)
+        header.grid(row=0, column=0, sticky="ew")
+        label.grid(row=0, column=0)
+        self.button.grid(row=0, column=1)
+        self.content.grid(row=1, column=0, sticky="nsew")
+
+    def toggle(self):
+        if self.content.winfo_ismapped():
+            self.content.grid_remove()
+            self.button.config(text=" + ")
+        else:
+            self.content.grid()
+            self.button.config(text=" - ")
+        self.update_idletasks()
+
+    def add(self, widget: type[T], *args, **kwargs) -> T:
+        return widget(self.content, *args, **kwargs)
+
+
 class CheckOptions(tk.Frame):
     """Composant de CheckButtons pour les options."""
 

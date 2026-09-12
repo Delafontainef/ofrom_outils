@@ -1,12 +1,14 @@
 import os
 import time
 import unittest
-from unittest.mock import patch, Mock, MagicMock
+from unittest.mock import patch, Mock, MagicMock, mock_open
 from dataclasses import dataclass
 
+from ofrom_outils import common
 from ofrom_outils.common import (
-    kwarg, fix_lext,
-    iter_file, iter_all, get_files, iter_core, get_core,
+    read_json, write_json, package_paths, project_paths,
+    set_project_paths, kwarg, fix_lext,
+    iter_file, iter_all, get_files, sub_corpus, iter_core, get_core,
     ensure_outdir, iter_top_tiers, iter_segs, get_top_tiers, get_spk,
     set_parent, call_praat, anon_ofrom_plus, ph_ofrom,
     mp_wait, multiprocess, multithread
@@ -18,6 +20,90 @@ def fake_mp_proc(l_proc, _func, _l_files, _args):
     proc.join = Mock()
     l_proc.append(proc)
     return l_proc
+
+
+@patch("builtins.open", new_callable=mock_open)
+class TestJson(unittest.TestCase):
+
+    @patch("ofrom_outils.common.json.load")
+    def test_load(self, mock_json, mock_op):
+        read_json("hello")
+        mock_json.assert_called_once_with(
+            mock_op.return_value.__enter__.return_value
+        )
+        mock_op.assert_called_once()
+
+    @patch("ofrom_outils.common.json.dump")
+    def test_write(self, mock_json, mock_op):
+        write_json({"henry": "test"}, "hello")
+        mock_json.assert_called_once_with(
+            {"henry": "test"},
+            mock_op.return_value.__enter__.return_value,
+            ensure_ascii=False, indent=4
+        )
+        mock_op.assert_called_once()
+
+
+@patch("ofrom_outils.common.PACKAGE_DIR", new="root/proj/wapiti")
+class TestPaths(unittest.TestCase):
+
+    @patch("ofrom_outils.common.sys")
+    def test_package_paths(self, mock_sys):
+        mock_sys.executable = "hello/wapiti"
+        mock_sys.frozen = True
+        root, data, praat, ffmpeg, logs = package_paths()
+        self.assertEqual(root, "hello")
+        self.assertEqual(data, os.path.join(root, "programmes", "_ofrom"))
+        del mock_sys.frozen
+        root, data, praat, ffmpeg, logs = package_paths()
+        self.assertEqual(root, "root/proj")
+
+    @patch("ofrom_outils.common.read_json")
+    @patch("ofrom_outils.common.DATA", new="root/data")
+    def test_project_paths(self, mock_json):
+        core, corp, sub, meta = project_paths()
+        self.assertEqual(core, "")
+        mock_json.return_value = {
+            'nom': "proj",
+            'chemin': "",
+            'corp': [],
+            'sub': [],
+            'meta': "hello.xlsx"
+        }
+        with (
+            patch("ofrom_outils.common.os.path.isfile", side_effect=[
+                True, False, True
+            ]),
+            patch("ofrom_outils.common.os.path.isdir", return_value=True)
+        ):
+            core, corp, sub, meta = project_paths()
+            self.assertEqual(core, "root/proj")
+            self.assertEqual(meta, os.path.join("root/proj", "hello.xlsx"))
+
+    def test_set_project_paths(self):
+        with (
+            patch.object(common, "CORE", new="core"),
+            patch.object(common, "META", new="meta")
+        ):
+            set_project_paths("new", "diff")
+            self.assertEqual(common.CORE, "core")
+
+        with (
+            patch.object(common, "CORE", new="core"),
+            patch.object(common, "META", new="meta"),
+            patch.object(common, "DATA", new="data"),
+            patch.object(common.os.path, "isdir", return_value=True),
+            patch.object(common.os.path, "isfile", return_value=True),
+            patch.object(common, "read_json", return_value={}),
+            patch.object(common, "write_json") as mock_write
+        ):
+            set_project_paths("new", "diff")
+            self.assertEqual(common.CORE, "new")
+            self.assertEqual(common.META, "diff")
+            mock_write.assert_called_once_with(
+                {"chemin": "new"},
+                os.path.join("data", "ofrom_struct.json")
+            )
 
 
 class TestKwarg(unittest.TestCase):
@@ -149,26 +235,34 @@ class TestGetFiles(unittest.TestCase):
         self.assertEqual(l_res, mock_iter.return_value)
 
 
+@patch("ofrom_outils.common.SUB", new=["hel", "lo"])
+@patch("ofrom_outils.common.CORE", new="test")
+class TestSubCorpus(unittest.TestCase):
+    def test_sub_corpus(self):
+        val = sub_corpus("corp", 0)
+        self.assertEqual(val, os.path.join("test", "corp", "hel"))
+        val = sub_corpus("corp", -8)
+        self.assertEqual(val, os.path.join("test", "corp", "lo"))
+
+
+@patch("ofrom_outils.common.SUB", return_value=["0", "1"])
 @patch("ofrom_outils.common.iter_file")
-@patch("ofrom_outils.common.sub_corpus")
 @patch("ofrom_outils.common.fix_lext")
 @patch("ofrom_outils.common.os.path.isdir")
 @patch("ofrom_outils.common.CORP", ["corp1", "corp2"])
 class TestIterCore(unittest.TestCase):
 
-    def test_core(self, mock_isdir, mock_lext, mock_sub, mock_iter):
+    def test_core(self, mock_isdir, mock_lext, mock_iter, _mock_sub):
         mock_isdir.return_value = True
         mock_lext.return_value = []
-        mock_sub.return_value = ["subcorp"]
         mock_iter.return_value = [
-            ("file", ".xml", "file.xml", "subcorp\\file.xml")
+            ("file", ".xml", "file.xml", "1\\file.xml")
         ]
         l_res = [tpl for tpl in iter_core()]
         self.assertEqual(l_res, [
-            ("corp1", "file", ".xml", "file.xml", "subcorp\\file.xml"),
-            ("corp2", "file", ".xml", "file.xml", "subcorp\\file.xml")
+            ("corp1", "file", ".xml", "file.xml", "1\\file.xml"),
+            ("corp2", "file", ".xml", "file.xml", "1\\file.xml")
         ])
-        assert mock_sub.call_count == 2
         assert mock_iter.call_count == 2
 
 

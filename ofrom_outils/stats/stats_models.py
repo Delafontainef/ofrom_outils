@@ -70,22 +70,22 @@ class AbsStats(Protocol):
     def load_dir(self,
                  path: Path,
                  mode: str = "",
-                 l_ext: str | list[str] = None
-                 ) -> StList:
+                 l_ext: str | list[str] | None = None
+                 ) -> StList | None:
         ...
 
     def load_corp(self,
-                  corp: list[str] = None,
+                  corp: list[str] | None = None,
                   mode: str = "",
-                  l_ext: str | list[str] = None
-                  ) -> StList:
+                  l_ext: str | list[str] | None = None
+                  ) -> StList | None:
         ...
 
     def load_meta(self, path: Path) -> None:
         ...
 
     def sort(
-            self, st: StList, typ: str, func: Callable = None
+            self, st: StList, typ: str, func: Callable | None = None
     ) -> dict[str, StList]:
         ...
 

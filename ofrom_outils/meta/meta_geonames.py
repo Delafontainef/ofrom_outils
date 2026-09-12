@@ -14,7 +14,7 @@ from contextlib import contextmanager
 import requests
 
 from ofrom_outils.common import DATA
-from ofrom_outils.common_types import Path, Iterator, Callable, Any
+from ofrom_outils.common_types import Path, Iterator, Callable, Any, cast
 from ofrom_outils.db.db import read_sql
 from ofrom_outils.meta.meta import Meta
 
@@ -376,6 +376,7 @@ def create_index(
 
 
 def rebuild_database(clear: bool = False) -> None:
+    """Reconstruit la base de données."""
     if os.path.isfile(LOCAL_DB):
         os.remove(LOCAL_DB)
     with _open_connection() as (local_conn, cursor):
@@ -446,6 +447,7 @@ def get_geoname(
             )
             db_data = cursor.execute(sql, params).fetchall()
     result = max(db_data, key=lambda x: x[-1], default=None)
+    result = cast(tuple, result)
     return dict(zip(keys, result[1:-1])) if result else {}
 
 if "__main__" == __name__:

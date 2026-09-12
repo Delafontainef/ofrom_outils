@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import patch, MagicMock
 
+from openpyxl.worksheet.worksheet import Worksheet
+
 from ofrom_outils.stats.stats import (
     open_excel, write_table, Stats, get_corpus_stats
 )
@@ -13,7 +15,10 @@ class TestOpenExcel(unittest.TestCase):
 
     def test_empty(self, mock_isfile, mock_xl):
         mock_isfile.return_value = False
-        mock_xl.Workbook.return_value = MagicMock()
+        mock_wb = MagicMock()
+        mock_ws = MagicMock(spec=Worksheet)
+        mock_wb.active = mock_ws
+        mock_xl.Workbook.return_value = mock_wb
         wb, sh = open_excel("nope.xlsx", "mine")
         self.assertEqual(wb.active, sh)
         self.assertEqual(sh.title, "mine")

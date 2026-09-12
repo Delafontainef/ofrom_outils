@@ -1,7 +1,7 @@
 import datetime
 import re
 
-from openpyxl.cell.cell import Cell
+from openpyxl.cell.cell import Cell, MergedCell
 
 from ofrom_outils.common import DFLT
 from ofrom_outils.common_types import Any, Callable
@@ -38,13 +38,13 @@ def val_to_str(val: Any = "") -> str:
     return str(val) if not isinstance(val, str) else val
 
 
-def str_to_regex(val: str, r: re.Pattern = None) -> str:
+def str_to_regex(val: str, r: re.Pattern | None = None) -> str:
     """Retire tout symbole non-autorisé via une expression régulière."""
     r = re.compile(CELL_R) if not r else r
     return "".join(r.findall(val)).strip()
 
 
-def regex_to_list(val: str = "", lst: list[str] = None) -> str:
+def regex_to_list(val: str = "", lst: list[str] | None = None) -> str:
     """Vérifie si la valeur est dans la liste."""
     lst = [] if lst is None else lst
     return "" if val not in lst else val
@@ -171,7 +171,7 @@ class VVal(ModelVVal):
 class VCell(ModelVCell):
     """Wrapper autour d'une cellule pour lui intégrer un validateur."""
 
-    def __init__(self, cell: Cell, k: str = "", dflt: str = DFLT):
+    def __init__(self, cell: Cell | MergedCell, k: str = "", dflt: str = DFLT):
         if not isinstance(cell, Cell):  # runtime type check
             raise TypeError(f"{cell} is not a Cell.")
         self.cell = cell

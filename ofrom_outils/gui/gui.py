@@ -228,7 +228,7 @@ class CorMain(tk.Tk):
 
     def _load_config(self):
         """Chargement du fichier de configuration."""
-        config_file = os.path.join(DATA, "ofrom_gui_config.json")
+        config_file = os.path.join(DATA, "ofrom_gui.json")
         if not os.path.isfile(config_file):
             return
         with open(config_file, "r", encoding="utf-8") as rf:
@@ -240,7 +240,7 @@ class CorMain(tk.Tk):
         """Sauvegarde du fichier de configuration."""
         if event and event.widget is not self:
             return
-        config_file = os.path.join(DATA, "ofrom_gui_config.json")
+        config_file = os.path.join(DATA, "ofrom_gui.json")
         with open(config_file, "w", encoding="utf-8") as wf:
             json.dump(asdict(self.data), wf, indent=4)
 

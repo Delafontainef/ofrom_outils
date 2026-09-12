@@ -6,7 +6,7 @@ from collections.abc import Sequence, MutableSequence
 from typing import Any, IO, TypeVar, Iterator, Callable, Self, cast
 
 from corflow.Transcription import Transcription, Tier, Segment
-from openpyxl.cell import Cell
+from openpyxl.cell import Cell, MergedCell
 from openpyxl.worksheet.worksheet import Worksheet
 
 type Path = str
@@ -17,7 +17,7 @@ type PathDict = dict[str, Path]  # key, path
 type GDict = dict[str, str | list | dict]
 type Pyw = Callable[[str, str], None] | Path | None
 
-type Row = Sequence[Cell]
+type Row = Sequence[Cell | MergedCell]
 
 type PathList = list[Path | list[Path] | tuple[Path]]
 type MajData = dict  # json output

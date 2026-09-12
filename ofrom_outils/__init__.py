@@ -1,3 +1,7 @@
+import os
+
+PACKAGE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 from .common import (
     PRAAT, FFMPEG, DATA, CORE, CORP, META, PAUSE, TRUNC,
     SYMS, DFLT, TAGS,
@@ -16,6 +20,7 @@ from .stats import get_corpus_stats, Stats
 from .gui import CorMain
 
 __all__ = [
+    "PACKAGE_DIR",
     "PRAAT", "FFMPEG", "DATA", "CORE", "CORP", "META", "PAUSE",
     "TRUNC", "SYMS", "DFLT", "TAGS",
     "iter_file", "iter_all", "get_files", "iter_core", "get_core",

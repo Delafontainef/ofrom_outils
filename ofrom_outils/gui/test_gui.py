@@ -178,7 +178,7 @@ class TestCorMain(unittest.TestCase):
 
         self.gui.destroy()  # causes '_save_config' to be called
         self.gui = None
-        config_file = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        config_file = os.path.join(self.tmp.name, "ofrom_gui.json")
         with open(config_file, "r", encoding="utf-8") as rf:
             json_data = json.load(rf)
         self.assertEqual(
@@ -200,7 +200,7 @@ class TestCorMain(unittest.TestCase):
             "active": 2,
             "unknown": "DO_NOT_LOAD"
         }
-        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        path = os.path.join(self.tmp.name, "ofrom_gui.json")
         with open(path, "w", encoding="utf-8") as wf:
             json.dump(config, wf)
 
@@ -221,7 +221,7 @@ class TestCorMain(unittest.TestCase):
         event.widget = tk.Frame(self.gui)  # different widget destroyed
         self.gui._save_config(event)
 
-        path = os.path.join(self.tmp.name, "ofrom_gui_config.json")
+        path = os.path.join(self.tmp.name, "ofrom_gui.json")
         self.assertFalse(os.path.exists(path))
 
     def test_save_geometry(self):
