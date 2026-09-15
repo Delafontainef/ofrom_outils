@@ -9,7 +9,9 @@ from ofrom_outils.gui.gui_ongl import (
     update_dc, DirPath, RadioOptions, CorOngl, TreePath, Options
 )
 from ofrom_outils.gui.gui_models import CorAudioData
-from ofrom_outils.audio.audio import L_EXT, all_audio_convert, all_audio_mean
+from ofrom_outils.audio.audio import (
+    L_EXT, all_audio_convert, all_audio_level, all_audio_mean
+)
 from ofrom_outils.logs.log import Log
 
 LOG = Log()
@@ -22,10 +24,11 @@ def validate_mean(val: str) -> bool:
 def run_convert(
         l_paths: list[Path],
         npath: Path,
-        typ: str
+        typ: str,
+        rem: bool
 ) -> None:
     LOG.log("", mode="clear")
-    all_audio_convert(l_paths, npath, typ, False, False, True, LOG)
+    all_audio_convert(l_paths, npath, typ, rem, False, True, LOG)
     LOG.log("", mode="clear")
     LOG.log("Conversion terminée.")
 
@@ -33,11 +36,12 @@ def run_convert(
 def run_mean(
         l_paths: list[Path],
         npath: Path,
-        mean: int | float | None
+        mean: int | float | None,
+        rem: bool
 ) -> None:
     LOG.clear()
     all_audio_mean(
-        l_paths, npath, None, mean, False, True, LOG
+        l_paths, npath, None, mean, rem, True, LOG
     )
     LOG.clear()
     LOG.log("Conversion terminée")
@@ -74,6 +78,12 @@ class CorAudio(CorOngl[CorAudioData]):
             RadioOptions,
             self.data.c.ext
         )
+        self.conv_rem_value = tk.BooleanVar(value=False)
+        conv_rem = conv_opts.add(
+            tk.Checkbutton,
+            text="Supprimer les fichiers d'entrée ?",
+            variable=self.conv_rem_value
+        )
         mean = tk.Frame(right_pane, bd=1, relief="groove", padx=8, pady=8)
         self.mean_button = tk.Button(
             mean,
@@ -87,7 +97,6 @@ class CorAudio(CorOngl[CorAudioData]):
             self.data.m.outdir
         )
         mean_target = mean_opts.add(tk.Frame)
-
         vcmd = (self.register(validate_mean), "%P")
         mean_label = tk.Label(mean_target, text="Volume moyen : ", anchor="w")
         self.mean_value = tk.StringVar(
@@ -100,6 +109,17 @@ class CorAudio(CorOngl[CorAudioData]):
             validate="key",
             validatecommand=vcmd
         )
+        mean_seek = tk.Button(
+            mean_target,
+            text="Auto",
+            command=self.seek_mean
+        )
+        self.mean_rem_value = tk.BooleanVar(value=False)
+        mean_rem = mean_opts.add(
+            tk.Checkbutton,
+            text="Supprimer les fichiers d'entrée ?",
+            variable=self.conv_rem_value
+        )
 
         top.add(self.files, weight=1)
         top.add(right_pane, weight=1)
@@ -108,14 +128,17 @@ class CorAudio(CorOngl[CorAudioData]):
         mean.grid(row=1, column=0, sticky="nsew")
         self.conv_button.grid(row=0, column=0, sticky="new")
         conv_opts.grid(row=1, column=0, sticky="nsew")
-        self.mean_button.grid(row=0, column=0, sticky="new")
-        mean_opts.grid(row=1, column=0, sticky="nsew")
         self.conv_out.grid(row=0, column=0, sticky="new")
         self.conv_ext.grid(row=1, column=0, sticky="new")
+        conv_rem.grid(row=2, column=0, sticky="nw")
+        self.mean_button.grid(row=0, column=0, sticky="new")
+        mean_opts.grid(row=1, column=0, sticky="nsew")
         self.mean_out.grid(row=0, column=0, sticky="new")
         mean_target.grid(row=1, column=0, sticky="new")
         mean_label.grid(row=0, column=0, sticky="e")
         mean_entry.grid(row=0, column=1, sticky="w")
+        mean_seek.grid(row=0, column=2, sticky="w")
+        mean_rem.grid(row=2, column=0, sticky="nw")
 
         self.columnconfigure(0, weight=1)
         right_pane.columnconfigure(0, weight=1)
@@ -136,8 +159,10 @@ class CorAudio(CorOngl[CorAudioData]):
         ext = self.conv_ext.get()
         for k in self.data.c.ext.keys():
             self.data.c.ext[k][1] = True if k == ext else False
+        self.data.c.rem = self.conv_rem_value.get()
         self.data.m.outdir = self.mean_out.get()
         m = self.mean_value.get()
+        self.data.m.rem = self.mean_rem_value.get()
         try:
             self.data.m.mean = float(m)
         except ValueError:
@@ -150,22 +175,44 @@ class CorAudio(CorOngl[CorAudioData]):
         self.files.set(self.data.files)
         self.conv_out.set(self.data.c.outdir)
         self.conv_ext.reset(self.data.c.ext)
+        self.conv_rem_value.set(self.data.c.rem)
         self.mean_out.set(self.data.m.outdir)
         self.mean_value.set(
             self.data.m.mean if self.data.m.mean is not None else ""
         )
+        self.mean_rem_value.set(self.data.m.rem)
+
+    def seek_mean(self):
+        """Propose un volume moyen."""
+        def _worker():
+            mean = all_audio_level(self.data.files, verbose=False)[1]
+            self.after(0, self.set_data, {
+                "m": {"mean": mean}
+            })
+
+        threading.Thread(target=_worker).start()
 
     def convert(self):
         self.get_data()
         typ = next((k for k, (_, v) in self.data.c.ext.items() if v), "")
         threading.Thread(
             target=run_convert,
-            args=(self.data.files, self.data.c.outdir, typ)
+            args=(
+                self.data.files,
+                self.data.c.outdir,
+                typ,
+                self.data.c.rem
+            )
         ).start()
 
     def mean(self):
         self.get_data()
         threading.Thread(
             target=run_mean,
-            args=(self.data.files, self.data.m.outdir, self.data.m.mean)
+            args=(
+                self.data.files,
+                self.data.m.outdir,
+                self.data.m.mean,
+                self.data.m.rem
+            )
         ).start()

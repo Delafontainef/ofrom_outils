@@ -18,7 +18,7 @@ class TestAudioStaticFunctions(unittest.TestCase):
     @patch("ofrom_outils.gui.gui_audio.all_audio_convert")
     def test_run_convert(self, mock_conv, mock_log):
         mock_log.clear.return_value = None
-        run_convert(["test"], "test2", "typ")
+        run_convert(["test"], "test2", "typ", False)
         mock_conv.assert_called_once_with(
             ["test"],
             "test2",
@@ -33,13 +33,13 @@ class TestAudioStaticFunctions(unittest.TestCase):
     @patch("ofrom_outils.gui.gui_audio.all_audio_mean")
     def test_run_mean(self, mock_mean, mock_log):
         mock_log.clear.return_value = None
-        run_mean(["test"], "test2", -1.3)
+        run_mean(["test"], "test2", -1.3, True)
         mock_mean.assert_called_once_with(
             ["test"],
             "test2",
             None,
             -1.3,
-            False,
+            True,
             True,
             mock_log
         )
@@ -105,13 +105,13 @@ class TestCorAudio(unittest.TestCase):
     def test_convert(self, mock_conv):
         aud = CorAudio(self.root, self.data, self.pyw)
         aud.convert()
-        mock_conv.assert_called_once_with([], "", "delete")
+        mock_conv.assert_called_once_with([], "", "delete", False)
 
     @patch("ofrom_outils.gui.gui_audio.run_mean")
     def test_mean(self, mock_mean):
         aud = CorAudio(self.root, self.data, self.pyw)
         aud.mean()
-        mock_mean.assert_called_once_with([], "", 5.31)
+        mock_mean.assert_called_once_with([], "", 5.31, False)
 
 if __name__ == "__main__":
     unittest.main()

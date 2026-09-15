@@ -13,12 +13,14 @@ class CorAudioCData:
         "mp3": ["MP3", False],
         "m4a": ["M4A", False]
     })
+    rem: bool = False
 
 
 @dataclass
 class CorAudioMData:
     outdir: str = ""
     mean: float | int | None = None
+    rem: bool = False
 
 
 @dataclass

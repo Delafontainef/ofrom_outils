@@ -313,7 +313,7 @@ def all_audio_mean(
     if isinstance(l_out, str):  # file to list
         l_out = to_list(l_out)
     elif l_out is None:  # get audio levels
-        l_out = all_audio_level(path, verbose=False)[0]
+        l_out = all_audio_level(path, ch_all=True, verbose=False)[0]
     for fi, mes, mean_vol, g_mean, sd in l_out:  # fit l_out in d_out
         d_out[fi] = (mean_vol, g_mean if not mean else mean)
     for fi, ext, file, path in l_paths:  # process
