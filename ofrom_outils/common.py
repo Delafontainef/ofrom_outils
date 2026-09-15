@@ -2,38 +2,34 @@
 Une série de fonctions génériques pour les scripts d'OFROM+.
 """
 
+import json
 import multiprocessing as mp
 import os
 import re
 import subprocess
+import sys
 import threading as thr
 import time
 
-# from ofrom_outils.logs.log import log
+from ofrom_outils import PACKAGE_DIR
 from ofrom_outils.common_types import (
     Callable, Iterator, Path, IterPath, IterCorp, MPList,
     Transcription, Tier, Segment
 )
 
-try:
-    from ofrom_outils.pr.private_paths import (
-        ROOT, CORE, CORP, META, sub_corpus
-    )
-except ImportError:
-    ROOT, CORE, CORP, META = "", "", [], ""
-    sub_corpus = None
-
-# Données communes #
-# -----------------#
+# Constantes #
+# -----------#
 """Constantes globales
 clé         type        description
 -------------------------------------------------
 ROOT        Path        racine du package.
+DATA        Path        dossier de config / bases de données.
 PRAAT       Path        dossier contenant Praat et ses scripts.
 FFMPEG      Path        dossier contenant ffmpeg.
 LOGS        Path        dossier où déposer les journaux.
 CORE        Path        dossier des sous-corpus d'OFROM+.
 CORP        list<str>   noms de dossier des sous-corpus.
+SUB         list<str>   nom du type de sous-corpus.
 META        Path        chemin du fichier de métadonnées.
 PAUSE       str         symbole de pause d'OFROM+.
 TRUNC       str         symbole de troncation d'OFROM+.
@@ -41,11 +37,62 @@ SYMS        str         symboles réservés d'OFROM+ (sauf troncation).
 DFLT        str         valeur par défaut (métadonnées).
 TAGS        dict        suffixes des tires d'annotation.
 """
-COMMON_HOME: Path = os.path.abspath(os.path.dirname(__file__))
-# ROOT                  # déjà importé de 'private_paths'
-PRAAT: Path = os.path.join(ROOT, "programmes", "praat")
-FFMPEG: Path = os.path.join(ROOT, "programmes", "ffmpeg", "bin")
-LOGS: Path = os.path.join(ROOT, "ofrom_outils", "logs")
+
+
+def read_json(path: Path) -> dict:
+    """Pour ne pas répéter 'with open' à chaque fois..."""
+    with open(path, 'r', encoding="utf-8") as rf:
+        return json.load(rf)
+
+
+def write_json(data: dict, path: Path) -> None:
+    """Pour ne pas répéter 'with open' à chaque fois..."""
+    with open(path, 'w', encoding="utf-8") as wf:
+        json.dump(data, wf, ensure_ascii=False, indent=4)
+
+
+def package_paths():
+    """Récupère les chemins externes pour le package."""
+    if getattr(sys, "frozen", False):
+        root = os.path.dirname(sys.executable)
+    else:
+        root = os.path.dirname(PACKAGE_DIR)
+    assert isinstance(root, str)
+    prog = os.path.join(root, "programmes")
+    data = os.path.join(prog, "_ofrom")
+    praat = os.path.join(prog, "praat")
+    ffmpeg = os.path.join(prog, "ffmpeg", "bin")
+    logs = os.path.join(data, "logs")
+    return root, data, praat, ffmpeg, logs
+
+
+def project_paths():
+    """Récupère les chemins externes pour le projet."""
+    proj_json = os.path.join(DATA, "ofrom_struct.json")
+    if not os.path.isfile(proj_json):
+        return "", [], [], ""
+    proj_data = read_json(proj_json)
+    name = proj_data['nom']
+    corp = proj_data['corp']
+    sub = proj_data['sub']
+    core = proj_data['chemin'] or PACKAGE_DIR
+    meta = proj_data['meta']
+    while True:
+        d, f = os.path.split(core)
+        if os.path.isdir(core) and f == name:
+            break
+        elif d == core or not d:  # projet introuvable
+            return "", corp, sub, ""
+        core = d
+    if meta and not os.path.isfile(meta):
+        meta = os.path.join(core, meta)
+    if not os.path.isfile(meta):
+        meta = ""
+    return core, corp, sub, meta
+
+
+ROOT, DATA, PRAAT, FFMPEG, LOGS = package_paths()
+CORE, CORP, SUB, META = project_paths()
 PAUSE: str = "_"
 TRUNC: str = "-"
 SYMS: str = r"[_#%@]"
@@ -61,8 +108,23 @@ TAGS: dict[str, str] = {
 }
 
 
+def set_project_paths(core: Path, meta: Path = "") -> None:
+    """Laisse l'utilisateur fournir les chemins du projet."""
+    global CORE, META
+    old_core = CORE
+    CORE = core if os.path.isdir(core) else CORE
+    META = meta if os.path.isfile(meta) else META
+    if CORE != old_core:
+        path = os.path.join(DATA, "ofrom_struct.json")
+        dat = read_json(path)
+        dat['chemin'] = CORE
+        write_json(dat, path)
+
+
 # sys.argv #
-# ----------#
+# ---------#
+
+
 def kwarg(argv: list[str]) -> tuple[list[str], dict[str, str]]:
     """Transforme 'sys.argv' en args et kwargs."""
     args, kwargs = [], {}
@@ -81,8 +143,9 @@ def kwarg(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         args.append(arg)
     return args, kwargs
 
-    # Fichiers #
-    # ----------#
+
+# Fichiers #
+# ---------#
 
 
 def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
@@ -98,9 +161,20 @@ def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
     return [fix(l_ext)]
 
 
+def _splitpath(file: str, d: str = "") -> tuple[str, str, str, str]:
+    """Renvoie le nom de fichier, l'extension, le nom complet et le chemin."""
+    if not d:
+        path = file
+        file = os.path.basename(file)
+    else:
+        path = os.path.join(d, file)
+    fi, ext = os.path.splitext(file)
+    return fi, ext, file, path
+
+
 def iter_file(
         d: Path,
-        l_ext: str | list[str] = None
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterPath]:
     """Itère de façon non-récursive sur un dossier.
        [!] Si 'l_ext' a des extensions, ne retourne que les fichiers
@@ -108,16 +182,30 @@ def iter_file(
     """
     l_ext = fix_lext(l_ext)
     for file in os.listdir(d):
-        fi, ext = os.path.splitext(file)
+        fi, ext, file, path = _splitpath(file, d)
         if l_ext and ext.lower() not in l_ext:
             continue
-        path = os.path.join(d, file)
+        yield fi, ext, file, path
+
+
+def iter_files(
+        files: list[Path] | list[IterPath],
+        l_ext: str | list[str] | None = None
+) -> Iterator[IterPath]:
+    """Itère sur une liste de chemins."""
+    l_ext = fix_lext(l_ext)
+    for path in files:
+        if type(path) == IterPath:
+            yield path
+        fi, ext, file, path = _splitpath(path)
+        if l_ext and ext.lower() not in l_ext:
+            continue
         yield fi, ext, file, path
 
 
 def iter_all(
         d: Path,
-        l_ext: str | list[str] = None
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterPath]:
     """Itère récursivement sur un dossier.
        [!] Si 'l_ext' a des extensions, ne retourne que les fichiers
@@ -126,16 +214,15 @@ def iter_all(
     l_ext = fix_lext(l_ext)
     for root, dirs, files in os.walk(d):
         for file in files:
-            fi, ext = os.path.splitext(file)
+            fi, ext, file, path = _splitpath(file, root)
             if l_ext and ext.lower() not in l_ext:
                 continue
-            path = os.path.join(root, file)
             yield fi, ext, file, path
 
 
 def get_files(
         d: Path,
-        l_ext: str | list[str] = None,
+        l_ext: str | list[str] | None = None,
         ch_all: bool = False,
         verbose: bool = False
 ) -> list[Path | IterPath]:
@@ -150,10 +237,16 @@ def get_files(
     return l_res
 
 
+def sub_corpus(corp: str, sub: int = 1) -> Path:
+    """Retourne le chemin du sous-corpus."""
+    sub = sub if 0 <= sub <= len(SUB) else 1
+    return os.path.join(CORE, corp, SUB[sub])
+
+
 def iter_core(
-        corp: list[str] = None,
-        sub: str = "",
-        l_ext: str | list[str] = None
+        corp: list[str] | None = None,
+        sub: int = 1,
+        l_ext: str | list[str] | None = None
 ) -> Iterator[IterCorp]:
     """Itère non-récursivement sur l'ensemble du corpus.
        - core:      (str) le dossier du corpus.
@@ -173,9 +266,9 @@ def iter_core(
 
 
 def get_core(
-        corp: list[str] = None,
-        sub: str = "",
-        l_ext: list[str] = None,
+        corp: list[str] | None = None,
+        sub: int = 1,
+        l_ext: list[str] | None = None,
         verbose: bool = False
 ) -> list[Path] | list[IterCorp]:
     """Renvoie la liste de toutes les transcriptions du corpus.
@@ -211,12 +304,13 @@ def ensure_outdir(d: Path) -> None:
         if not os.path.isdir(path):
             os.mkdir(path)
 
-    # corflow #
-    # ---------#
+
+# corflow #
+# --------#
 
 
 def iter_top_tiers(
-        tr: Transcription, spk: list | str = None
+        tr: Transcription, spk: list | str | None = None
 ) -> Iterator[Tier]:
     """
     Itère sur les tires d'une transcription.
@@ -256,7 +350,7 @@ def iter_segs(
 
 def get_top_tiers(
         tr: Transcription,
-        spk: str | list[str] = None
+        spk: str | list[str] | None = None
 ) -> list[Tier]:
     """La liste des tires de transcription."""
     return [ti for ti in iter_top_tiers(tr, spk)]
@@ -276,20 +370,22 @@ def set_parent(tr: Transcription) -> Transcription:
             ti.timeParent(tr.getName(pname))
     return tr
 
-    # scripts Praat #
-    # ---------------#
+
+# scripts Praat #
+# --------------#
 
 
 def call_praat(script: str, args: list[str]) -> None:
     """Appelle un script Praat depuis Python.
        - script     (str) peut être nom (sans extension) ou Path
        - args       (list<str>) liste d'arguments pour le script
+       Attention : utilise '--FULL-TRUST'. Vérifier le script Praat.
     """
     praat = os.path.join(PRAAT, "Praat.exe")
     script = script + ".praat" if not script.endswith(".praat") else script
     if not os.path.isfile(script):
         script = os.path.join(PRAAT, script)
-    subprocess.run([praat, '--run', script] + args)
+    subprocess.run([praat, '--FULL-TRUST', '--run', script] + args)
 
 
 def anon_ofrom_plus(paths: list[Path]) -> None:
@@ -310,8 +406,9 @@ def ph_ofrom(
     sym_i = SYMS if not sym_i else sym_i
     call_praat("ph_ofrom", [aud_path, tgd_path, ph_path, sym_t, sym_i, words])
 
-    # multiprocessing #
-    # -----------------#
+
+# multiprocessing #
+# ----------------#
 
 
 def mp_wait(
@@ -370,7 +467,7 @@ def _mp_thr(
 def multiprocess(
         func: Callable,
         l_files: list[Path],
-        args: list = None,
+        args: list | None = None,
         n: int = -1,
         wait: bool = True
 ) -> None | tuple[list[mp.Process], MPList]:
@@ -415,7 +512,7 @@ def multiprocess(
 def multithread(
         func: Callable,
         l_files: list[Path],
-        args: list = None,
+        args: list | None = None,
         n: int = -1,
         wait: bool = True
 ) -> None | tuple[list[thr.Thread], list]:

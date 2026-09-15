@@ -135,3 +135,6 @@ class TestLogClass(unittest.TestCase):
         assert mock_prt.call_count == 0
         assert mock_write.call_count == 0
         mock_io.assert_called_once_with("custom-io", mode="a")
+
+if __name__ == "__main__":
+    unittest.main()

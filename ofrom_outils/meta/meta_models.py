@@ -109,7 +109,7 @@ class AbsMeta(Protocol):
     wb: Workbook
     d: MetaDict
 
-    def open(self, f: Path) -> Workbook:
+    def open(self, f: Path) -> Workbook | None:
         ...
 
     def close(self) -> None:

@@ -78,11 +78,11 @@ class TestSetupConv(unittest.TestCase):
 
 @patch("ofrom_outils.audio.audio.tempfile")
 @patch("ofrom_outils.audio.audio.subprocess")
-@patch("ofrom_outils.audio.audio.os")
 @patch("ofrom_outils.audio.audio.shutil")
+@patch("ofrom_outils.audio.audio.os")
 class TestSubp(unittest.TestCase):
 
-    def test_subp(self, mock_shutil, mock_os, mock_sproc, mock_tempfile):
+    def test_subp(self, mock_os, mock_shutil, mock_sproc, mock_tempfile):
         p1 = os.path.join("path", "file.wav")
         p2 = os.path.join("path", "file2.wav")
         mock_os.path.exists.return_value = True
@@ -100,7 +100,7 @@ class TestSubp(unittest.TestCase):
         mock_tempfile.NamedTemporaryFile.assert_called_once_with(delete=False,
                                                                  suffix=".wav")
 
-    def test_subp_rem(self, mock_shutil, mock_os, mock_sproc, mock_tempfile):
+    def test_subp_rem(self, mock_os, mock_shutil, mock_sproc, mock_tempfile):
         p1 = os.path.join("path", "file.mp3")
         p2 = os.path.join("path", "file2.wav")
         mock_os.path.exists.return_value = True
@@ -336,21 +336,17 @@ class TestAllAudioConvert(unittest.TestCase):
         mock_check.side_effect = lambda fi, ext, file, path: (True, fi, ext,
                                                               file, path)
         mock_wav = MagicMock()
-        mdf.get.side_effect = lambda key: {
+        mdf.__getitem__.side_effect = lambda key: {
             "wav": (mock_wav, ".wav"),
             "mp3": (MagicMock(), ".mp3"),
             "m4a": (MagicMock(), ".m4a")
-        }.get(key)
+        }[key]
         all_audio_convert("a_path", "", verbose=False)
         assert mock_wav.call_count == 3
         args, _ = mock_wav.call_args
         self.assertEqual(args, (
-            'path_fi3.wav',
-            os.path.join('a_path', 'fi3.wav'),
-            False,
-            False)
-                         )
-
+            'path_fi3.wav', os.path.join('a_path', 'fi3.wav'), False, False
+        ))
 
 class TestArgs(unittest.TestCase):
 

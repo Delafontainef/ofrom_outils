@@ -11,7 +11,8 @@ L'ancienne fonction 'load_meta()' est toujours présente.
 import os
 
 import openpyxl as xl
-from openpyxl.workbook.workbook import Workbook  # typing
+from openpyxl.workbook.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 from ofrom_outils.common import META, DFLT, set_parent
 from ofrom_outils.common_types import Any, Self, Iterator, Path, Transcription
@@ -41,7 +42,7 @@ class Meta(AbsMeta):
         if of != self.f:  # réinitialise wb/d
             self.wb, self.d = None, MetaDict()
 
-    def open(self, f: Path = "") -> Workbook:
+    def open(self, f: Path = "") -> Workbook | None:
         """Ouvre le WorkBook."""
         self.set_path(f)
         self.wb = xl.load_workbook(self.f)
@@ -49,10 +50,11 @@ class Meta(AbsMeta):
 
     def close(self) -> None:
         """Ferme (et oublie) le WorkBook."""
-        try:
-            self.wb.close()
-        except AttributeError:  # we want to erase anyway
-            pass
+        if self.wb is not None:
+            try:
+                self.wb.close()
+            except AttributeError:  # we want to erase anyway
+                pass
         self.wb = None
 
     def clear(self) -> None:
@@ -63,7 +65,8 @@ class Meta(AbsMeta):
     def save(self, f: Path = "", close: bool = False) -> None:
         """Sauvegarde le WorkBook."""
         f = self.f if not f else f
-        self.wb.save(f)
+        if self.wb is not None:
+            self.wb.save(f)
         if close:
             self.close()
 
@@ -225,10 +228,12 @@ class Meta(AbsMeta):
         """
         if not self.wb:
             self.open()
-        mwb, c_path = set_pub_meta(self.wb, corp)
+        nwb, c_path = set_pub_meta(self.wb, corp)
         if save:
-            mwb.save(os.path.join(c_path + ".xlsx"))
-            save_as_csv(mwb.active, os.path.join(c_path + ".csv"))
+            sh = nwb.active
+            assert isinstance(sh, Worksheet)
+            nwb.save(os.path.join(c_path + ".xlsx"))
+            save_as_csv(sh, os.path.join(c_path + ".csv"))
         if close:
             self.close()
-        return mwb
+        return nwb

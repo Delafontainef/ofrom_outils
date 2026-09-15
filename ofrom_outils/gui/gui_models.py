@@ -1,0 +1,85 @@
+import tkinter as tk
+from contextlib import AbstractContextManager
+from dataclasses import dataclass, field
+from tkinter import ttk
+from typing import Any, Protocol, runtime_checkable
+
+
+@dataclass
+class CorAudioCData:
+    outdir: str = ""
+    ext: dict[str, list[str | bool]] = field(default_factory=lambda: {
+        "wav": ["WAV", True],
+        "mp3": ["MP3", False],
+        "m4a": ["M4A", False]
+    })
+    rem: bool = False
+
+
+@dataclass
+class CorAudioMData:
+    outdir: str = ""
+    mean: float | int | None = None
+    rem: bool = False
+
+
+@dataclass
+class CorAudioData:
+    """Données pour l'interface audio."""
+    name: str = "audio"
+    files: list[str] = field(default_factory=list)
+    c: CorAudioCData = field(default_factory=CorAudioCData)
+    m: CorAudioMData = field(default_factory=CorAudioMData)
+
+
+@dataclass
+class CorMainData:
+    """Données pour la fenêtre principale."""
+    pos: list[int]
+    size: list[int]
+    sash_pos: int
+    save_file: str
+    active: int
+
+
+@runtime_checkable
+class CorMenu(Protocol):
+    """Composant menu de l'interface."""
+
+    parent: tk.Misc
+
+
+@runtime_checkable
+class CorConsole(Protocol):
+    parent: tk.Misc
+
+    def activate(self) -> AbstractContextManager[None]:
+        ...
+
+    def mark(self, mark_name: str, mark: str) -> None:
+        ...
+
+    def clear(self, line: int, col: int) -> None:
+        ...
+
+    def write(self, txt: str, mode: str) -> None:
+        ...
+
+    def pyw(self, txt: str, mode: str) -> None:
+        ...
+
+
+@runtime_checkable
+class CorMain(Protocol):
+    menu: CorMenu
+    champ: ttk.Notebook
+    console: CorConsole
+    data: dict[str, Any]
+    ongl: list
+    actif: int
+
+    def _load_config(self) -> None:
+        ...
+
+    def _save_config(self, event: tk.Event) -> None:
+        ...

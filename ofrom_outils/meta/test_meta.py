@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import openpyxl as xl
 from openpyxl.workbook import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
 
 from ofrom_outils.common_types import Transcription
 from ofrom_outils.meta.meta import (
@@ -34,6 +35,7 @@ class TestMeta(unittest.TestCase):
         self.wb = xl.Workbook()
         sh = self.wb.active
         sh.title = "sup"
+        assert sh is not None
         sh.append(['nom_dossier', 'code_locuteur'])
         sh.append(['t26a01', 't26_001'])
 
@@ -55,6 +57,7 @@ class TestMeta(unittest.TestCase):
         try:
             self.wb.save(tmp_name)
             self.meta.open(tmp_name)
+            assert self.meta.wb is not None
             self.assertEqual(self.wb.sheetnames, self.meta.wb.sheetnames)
         finally:
             os.remove(tmp_name)
@@ -75,6 +78,7 @@ class TestMeta(unittest.TestCase):
         try:
             self.meta.save(tmp_name)
             xl.load_workbook(tmp_name)
+            assert self.meta.wb is not None
             self.assertTrue(self.meta.wb.sheetnames, self.wb.sheetnames)
         finally:
             os.remove(tmp_name)
@@ -192,8 +196,10 @@ class TestMetaContinued(unittest.TestCase):
             self, _mcsv, mpub, _msave, _mclear, _mclose, _mopen
     ):
         wb = xl.Workbook()
-        wb.active.append(["a1", "b1"])
-        wb.active.append(["1", "2"])
+        sh = wb.active
+        assert isinstance(sh, Worksheet)
+        sh.append(["a1", "b1"])
+        sh.append(["1", "2"])
         tmp = set_tmp(suffix="")
         try:
             mpub.return_value = (wb, tmp)

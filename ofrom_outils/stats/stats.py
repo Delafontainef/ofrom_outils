@@ -34,7 +34,8 @@ def open_excel(path: Path, shn: str) -> tuple[Workbook, Worksheet]:
             sh = wb[shn]
     else:
         wb = xl.Workbook()
-        sh: Worksheet = wb.active
+        sh = wb.active
+        assert isinstance(sh, Worksheet)
         sh.title = shn
     return wb, sh
 
@@ -64,7 +65,7 @@ class Stats(AbsStats):
     def __init__(self,
                  path: Path = "",
                  mode: str = "s",
-                 l_ext: str | list[str] = None
+                 l_ext: str | list[str] | None = None
                  ):
         self.f = ""
         self.md = None
@@ -84,6 +85,7 @@ class Stats(AbsStats):
         elif ((not self.md) or
               (os.path.isfile(path) and self.f != path)):
             self.f, self.md = path, Meta(path)
+            assert self.md is not None
             self.md.load()
 
     def set_meta_stats(
@@ -92,7 +94,8 @@ class Stats(AbsStats):
     ):
         """Met à jour les statistiques du fichier de métadonnées."""
 
-        fset: Callable[[str, str, str, Any], None] = self.md.ch_set \
+        assert self.md is not None
+        fset: Callable[[str, str, str, Any], bool | None] = self.md.ch_set \
             if safe else self.md.set
         age, wd, dur = "age", "nb_mots", "duree"
         date_enr, date_birth = "date_enregistrement", "date_naissance"
@@ -125,8 +128,10 @@ class Stats(AbsStats):
         """Catégorise les statistiques par 'typ' (transcription)."""
         self._set_md(path)
         res = {}
+        assert self.md is not None
         for trcode, stf in st.fi.items():
-            k: str = self.md.get(trcode, "trans", typ)
+            k = self.md.get(trcode, "trans", typ)
+            assert isinstance(k, str)
             if k not in res:
                 res[k] = StList()
             res[k].fi[trcode] = stf
@@ -139,10 +144,12 @@ class Stats(AbsStats):
         """Catégorise les statistiques par 'typ' (locuteur)."""
         self._set_md(path)
         res = {}
+        assert self.md is not None
         for trcode, stf in st.fi.items():
             for spkcode, tpl in stf.spk.items():
                 wd, dur = tpl
-                k: str = self.md.get(trcode, spkcode, typ)
+                k = self.md.get(trcode, spkcode, typ)
+                assert isinstance(k, str)
                 if k not in res:
                     res[k] = StList()
                 if trcode not in res[k].fi:
@@ -166,8 +173,8 @@ class Stats(AbsStats):
     def load_dir(self,
                  path: Path,
                  mode: str = "",
-                 l_ext: str | list[str] = None
-                 ) -> StList:
+                 l_ext: str | list[str] | None = None
+                 ) -> StList | None:
         """Charge les statistiques d'un dossier."""
         self.mode = mode if mode else self.mode
         self.l_ext = fix_lext(l_ext) if l_ext else self.l_ext
@@ -175,10 +182,10 @@ class Stats(AbsStats):
         return self.st
 
     def load_corp(self,
-                  corp: list[str] = None,
+                  corp: list[str] | None = None,
                   mode: str = "",
-                  l_ext: str | list[str] = None
-                  ) -> StList:
+                  l_ext: str | list[str] | None = None
+                  ) -> StList | None:
         """Charge les statistiques du corpus OFROM+."""
         self.mode = mode if mode else self.mode
         self.l_ext = fix_lext(l_ext) if l_ext else self.l_ext
@@ -193,9 +200,9 @@ class Stats(AbsStats):
         # --- #
 
     def sort(self,
-             st: StList,
+             st: StList | None,
              typ: str,
-             func: Callable = None
+             func: Callable | None = None
              ) -> dict[str, StList]:
         """Retourne les statistiques triées par 'typ'."""
         func = self.ch_typ(typ) if not func else func
@@ -216,7 +223,7 @@ class Stats(AbsStats):
 
     def to_excel_typ(self,
                      path: Path,
-                     st: StList,
+                     st: StList | None,
                      typ: str
                      ) -> None:
         """
@@ -238,10 +245,10 @@ class Stats(AbsStats):
 
 def get_corpus_stats(
         meta_path: Path = "",
-        corp: list[str] = None,
-        l_typs: list[str] = None,
+        corp: list[str] | None = None,
+        l_typs: list[str] | None = None,
         mode: str = "s",
-        l_ext: str | list[str] = None,
+        l_ext: str | list[str] | None = None,
         save_path: Path = "stats.xlsx"
 ) -> None:
     """

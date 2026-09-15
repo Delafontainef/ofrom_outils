@@ -1,0 +1,117 @@
+import unittest
+from unittest.mock import patch
+import tkinter as tk
+
+from ofrom_outils.gui.gui_audio import (
+    validate_mean, run_convert, run_mean, CorAudio
+)
+
+
+class TestAudioStaticFunctions(unittest.TestCase):
+    def test_validate_mean(self):
+        self.assertEqual(validate_mean(''), True)
+        self.assertEqual(validate_mean('-.'), True)
+        self.assertEqual(validate_mean('-12.136'), True)
+        self.assertEqual(validate_mean('a'), False)
+
+    @patch("ofrom_outils.gui.gui_audio.LOG")
+    @patch("ofrom_outils.gui.gui_audio.all_audio_convert")
+    def test_run_convert(self, mock_conv, mock_log):
+        mock_log.clear.return_value = None
+        run_convert(["test"], "test2", "typ", False)
+        mock_conv.assert_called_once_with(
+            ["test"],
+            "test2",
+            "typ",
+            False,
+            False,
+            True,
+            mock_log
+        )
+
+    @patch("ofrom_outils.gui.gui_audio.LOG")
+    @patch("ofrom_outils.gui.gui_audio.all_audio_mean")
+    def test_run_mean(self, mock_mean, mock_log):
+        mock_log.clear.return_value = None
+        run_mean(["test"], "test2", -1.3, True)
+        mock_mean.assert_called_once_with(
+            ["test"],
+            "test2",
+            None,
+            -1.3,
+            True,
+            True,
+            mock_log
+        )
+
+
+class TestCorAudio(unittest.TestCase):
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.data = {
+            "files": [
+                "file1.wav",
+                "file2.wav"
+            ],
+            "c": {
+                "outdir": "testc2",
+                "ext": {
+                    "copy": ["Copier", True],
+                    "move": ["Déplacer", False],
+                    "delete": ["Supprimer", True],
+                }
+            },
+            "m": {
+                "outdir": "testm2",
+                "mean": 5.31
+            }
+        }
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def pyw(self, text: str = "", mode: str = "w") -> None:
+        return
+
+    def test_init(self):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        self.assertEqual(aud.data.files, ["file1.wav", "file2.wav"])
+        self.assertEqual(aud.data.c.ext['copy'], ['Copier', True])
+
+    def test_get_data(self):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.conv_ext.val.set("copy")
+        dat = aud.get_data()
+        self.assertEqual(dat["c"]["ext"], {
+            "copy": ["Copier", True],
+            "move": ["Déplacer", False],
+            "delete": ["Supprimer", False],
+        })
+
+    def test_set_data(self):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.set_data({
+            "c": {"ext": {
+                "new": ["Nouveau", True]
+            }}
+        })
+        self.assertEqual(aud.data.c.ext, {
+            "new": ["Nouveau", True]
+        })
+        self.assertEqual(aud.conv_ext.val.get(), "new")
+
+    @patch("ofrom_outils.gui.gui_audio.run_convert")
+    def test_convert(self, mock_conv):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.convert()
+        mock_conv.assert_called_once_with([], "", "delete", False)
+
+    @patch("ofrom_outils.gui.gui_audio.run_mean")
+    def test_mean(self, mock_mean):
+        aud = CorAudio(self.root, self.data, self.pyw)
+        aud.mean()
+        mock_mean.assert_called_once_with([], "", 5.31, False)
+
+if __name__ == "__main__":
+    unittest.main()

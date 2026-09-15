@@ -78,10 +78,10 @@ procedure cut_file
 	nTiers = Get number of tiers
 	for ti from 1 to nTiers
 		nIntervals = Get number of intervals... ti
-		label_start$ = Get label of interval: ti,1
-		time_start = Get end point: ti,1
-		label_end$ = Get label of interval: ti,nIntervals
-		time_end = Get start point: ti,nIntervals
+		label_start$ = Get label of interval: ti, 1
+		time_start = Get end point: ti, 1
+		label_end$ = Get label of interval: ti, nIntervals
+		time_end = Get start point: ti, nIntervals
 		if not label_start$ = target_label$
 			check_start = 0
 		endif
@@ -167,15 +167,16 @@ endproc
 
 procedure fill_anon_tier
 	#### builds the 'anonTGD'
-	anonTGD = Create TextGrid... 0. sound_duration "anon"
 	selectObject: myTGD
+	endTime = Get duration
 	nTiers = Get number of tiers
 	tind# = zero# (nTiers)
 	tmax# = zero# (nTiers)
 	for ti from 1 to nTiers
-		tmax#[ti] = Get number of intervals... ti
+		tmax#[ti] = Get number of intervals: ti
 		tind#[ti] = tind#[ti] + 1
 	endfor
+	anonTGD = Create TextGrid: 0., endTime, "anon", ""
 	
 	start = -1.
 	end = -1.
@@ -270,9 +271,9 @@ procedure save_part
     else
         selectObject: mySound_part
         if ni = 1
-            Save as 'output_format$' file... 'anon_wav_path$'
+            Save as 'output_format$' file: anon_wav_path$
         else
-            Append to existing sound file... 'anon_wav_path$'
+            Append to existing sound file: anon_wav_path$
         endif
     endif
     Remove
@@ -319,7 +320,7 @@ procedure save_sound
     #### Handles saving the whole sound
     if save_directly$ = "no"
         selectObject: newSound
-        Save as 'output_format$' file... 'anon_wav_path$'
+        Save as 'output_format$' file: anon_wav_path$
         selectObject: newSound, anonTGD
     else
         selectObject: anonTGD
@@ -334,11 +335,12 @@ procedure anonymize
     endif
     
     selectObject: anonTGD
-	nIntervals = Get number of intervals... 1
+	nIntervals = Get number of intervals: 1
 	for ni from 1 to nIntervals
 		selectObject: anonTGD
 		part_start = Get start point: 1, ni
 		part_end = Get end point: 1, ni
+		appendInfoLine: "Int: ", ni, ": ", part_start, " ", part_end
 		label$ = Get label of interval: 1, ni
 		call treat_part
 		endif
@@ -376,8 +378,8 @@ procedure add_silence
 	#### Adds 0.1s at the end of the sound (for safety)
     anonSound = Read from file: anon_wav_path$
     nChannels = Get number of channels
-	mySound_part = Create Sound from formula... silence nChannels 0 0.1 sampling_frequency 0
-	Append to existing sound file... 'anon_wav_path$'
+	mySound_part = Create Sound from formula: "silence", nChannels, 0, 0.1, sampling_frequency, "0"
+	Append to existing sound file: anon_wav_path$
 	selectObject: mySound_part
 	Remove
 endproc
@@ -389,13 +391,13 @@ procedure treat_sound
 	#### Main
 	anon_wav_path$ = anon_path$+".wav"
 	anon_tgd_path$ = anon_path$+".TextGrid"
-	mySound = Read from file... 'wav_path$'
+	mySound = Read from file: wav_path$
 	sound_duration = Get total duration
 	sampling_frequency = Get sampling frequency
-	myTGD = Read from file... 'tgd_path$'
+	myTGD = Read from file: tgd_path$
 	
-    call to_mono
-    call check_start
+	call to_mono
+	call check_start
 	call cut_file
 	call fill_anon_tier
 	call anonymize

@@ -1,17 +1,16 @@
 import csv
 import datetime
+from typing import Hashable
 
 import openpyxl as xl
 from openpyxl.workbook.workbook import Workbook
 
-from ofrom_outils.common import DFLT, iter_file
-from ofrom_outils.common_types import Any, Iterator, Path, Row, Worksheet
+from ofrom_outils.common import DFLT, iter_file, sub_corpus
+from ofrom_outils.common_types import (
+    Any, Iterator, Path, Row, Worksheet, cast
+)
 from ofrom_outils.meta.meta_models import (MetaDict, Tr, Spk)
 from ofrom_outils.meta.meta_validation import VVal, VCell
-try:
-    from ofrom_outils.pr.private_paths import sub_corpus
-except ImportError:
-    sub_corpus = None
 
 type IterMeta = Iterator[tuple[str, object, dict, int, Row]]
 type SpktoSh = list[tuple[str, int]]
@@ -62,7 +61,7 @@ def iter_shn(wb: Workbook) -> IterMeta:
     """Itère sur le contenu du WorkBook."""
     for shn in wb.sheetnames:
         sh = wb[shn]
-        d_c = {c.value: i for i, c in enumerate(sh[1])}
+        d_c = {cast(Hashable, c.value): i for i, c in enumerate(sh[1])}
         for i, row in enumerate(sh.iter_rows(min_row=2)):
             yield shn, sh, d_c, i + 2, row
 
@@ -91,9 +90,11 @@ def _mrow(
     return md
 
 
-def load_meta(wb: Workbook) -> MetaDict:
+def load_meta(wb: Workbook | None) -> MetaDict:
     """Charge le dictionnaire de métadonnées 'MetaDict'."""
     md = MetaDict()
+    if wb is None:
+        return md
     for shn, sh, d_c, i, row in iter_shn(wb):
         _mrow(md, shn, i, row, d_c)
     return md
@@ -162,18 +163,23 @@ def _set_meta_wb(
                              f"ligne incorrecte.")
         elif oshn != shn:  # nouvelle feuille
             sh, oshn = wb[shn], shn
-            d_c = {c.value: j + 1 for j, c in enumerate(sh[1])}
+            d_c = {
+                cast(Hashable, c.value): j + 1 for j, c in enumerate(sh[1])
+            }
         if k not in d_c:  # pas dans l'en-tête...
             raise KeyError(f"{(trcode, spkcode)}: '{k}'"
                            f" pas dans le fichier.")
+        assert sh is not None
         VCell(sh.cell(int(i), d_c[k])).value = v
 
 
 def set_meta(
-        wb: Workbook, md: MetaDict,
+        wb: Workbook | None, md: MetaDict,
         trcode: str, spkcode: str, k: str, v: Any
 ) -> MetaDict:
     """Modifie dictionnaire et WorkBook (sans sauvegarder)."""
+    if wb is None:
+        return md
     l_spk = _set_meta_md(md, trcode, spkcode, k, v)  # modifie 'MetaEdit'
     _set_meta_wb(wb, l_spk, trcode, spkcode, k, v)  # modifie WorkBook
     return md
@@ -198,22 +204,25 @@ def get_pub_files(c_path: Path) -> dict[str, Path]:
     return d_files
 
 
-def set_pub_meta(wb: Workbook, corp: str) -> tuple[Workbook, Path]:
+def set_pub_meta(wb: Workbook | None, corp: str) -> tuple[Workbook, Path]:
     """
     Génère un metadata public à partir d'une feuille et 
     d'un dictionnaire de fichiers.
     Note : seules les entrées avec un fichier correspondant sont partagées.
     """
+    if wb is None:
+        return xl.Workbook(), ""
     # mise en place
     corp = corp.replace("-", "_")  # par prudence...
     sh = wb[corp.replace("_", "-")]
     c_path = sub_corpus(corp)
     d_files = get_pub_files(c_path)
-    d_c = {c.value: i for i, c in enumerate(sh[1])}
+    d_c = {cast(Hashable, c.value): i for i, c in enumerate(sh[1])}
     # écriture
     nwb = xl.Workbook()
     nsh = nwb.active
     nsh.title = sh.title
+    assert nsh is not None
     nsh.append(META_PUB)
     for row in sh.iter_rows(min_row=2):
         fi = row[d_c[TRCODE]].value
