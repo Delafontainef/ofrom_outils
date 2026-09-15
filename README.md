@@ -6,17 +6,15 @@ Collection d'outils pour la gestion du corpus OFROM+.
 L'outillage d'OFROM+ est conçu comme un espace de travail. Il faut donc 
 le télécharger manuellement (code > Download ZIP) ou via git.
 
-Le code fourni ici ne suffit pas. Il faut : 
-- ajouter le sous-dossier 'ofrom_outils/pr/'
-- (s'assurer que les chemins obtenus sont les bons : que l'outillage 
-a bien accès aux ressources d'OFROM+.)
-- ajouter l'exécutable DisMo dans 'programmes/DisMo/'
-- ajouter l'exécutable Praat dans 'programmes/praat/'
-- ajouter (si 'ofrom_outils.audio' est utilisé) FFMPEG dans 
-'programmes/ffmpeg/'
+Le code fourni ici ne suffit pas. Il faut remplir le dossier 'programmes' 
+avec les fichiers manquants : 
+- l'exécutable DisMo dans 'programmes/Dismo/'
+- l'exécutable Praat dans 'programmes/praat'
+- FFMPEG dans 'programmes/ffmpeg/'
+- le dossier 'programmes/_ofrom/'
 
-Si les programmes sont installés ailleurs, modifier les chemins dans 
-'ofrom_outils.common' en conséquence.
+Si les programmes sont installés ailleurs, il faut modifier 
+manuellement les chemins dans 'ofrom_outils.common' en conséquence.
 
 L'outillage requiert une série de librairies/modules Python. Il se comporte
 comme un 'package' et installera les dépendances en même temps que lui.
@@ -29,13 +27,11 @@ sous-dossier 'ofrom_outils'.
 ## Utilisation
 L'outillage est avant tout conçu pour être utilisé via une interface 
 graphique. 
-- double-cliquer sur 'maj.pyw' dans le dossier 'maj'.
-
-(À noter que 'maj.pyw' installera l'outillage via pip si les imports 
-échouent.)
+- double-cliquer sur 'ofrom.pyw' à la racine.
 
 Il est aussi possible de l'utiliser via des scripts : 
-> ```from ofrom_outils import ...```
+
+```from ofrom_outils import ...```
 
 Les scripts '.praat' sont eux dans "programmes/praat/".
 
@@ -62,6 +58,14 @@ dédiés :
 
 L'outillage d'OFROM+ <ofrom.unine.ch> est en refonte. 
 
-Il ne contient actuellement que 'log', 'formats', 'meta' et 'stats'. 
-Une fois 'audio' ajouté, la prochaine étape est 'gui', puis 'export' et 
-enfin 'pos'.
+Il contient actuellement : 
+- audio
+- log
+- formats
+- meta
+- stats
+- gui
+
+Il lui manque encore 'export' et enfin 'pos'.
+
+La GUI ne couvre que le module 'audio'.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ofrom_outils"
-version = "0.0.2"
+version = "0.0.3"
 description = "Collection d'outils pour la gestion du corpus OFROM+."
 authors = [
     {name = "François Delafontaine", email = "francois_delafontaine@outlook.com"}
