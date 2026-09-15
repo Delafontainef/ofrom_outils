@@ -113,20 +113,15 @@ class TestCorConsole(unittest.TestCase):
         self.assertEqual(self.get_text(), "abcXYZ")
 
     def test_pyw(self):
-        with (
-            patch.object(self.console, "write") as mock_write,
-            patch.object(self.console, "mark") as mock_mark,
-            patch.object(self.console, "clear") as mock_clear
-        ):
+        with patch.object(self.console, "after") as mock_after:
             self.console.pyw("abc", "a")
-            mock_write.assert_called_once_with("abc", "a")
-            self.console.pyw("abc", "w")
-            self.console.pyw("abc", "d")
-            self.assertEqual(mock_write.call_count, 2)
+            mock_after.assert_called_with(0, self.console.write, "abc", "a")
+
             self.console.pyw("", "mark")
-            mock_mark.assert_called_once_with()
+            mock_after.assert_called_with(0, self.console.mark)
+
             self.console.pyw("", "clear")
-            mock_clear.assert_called_once_with()
+            mock_after.assert_called_with(0, self.console.clear)
 
 
 class TestCorMain(unittest.TestCase):

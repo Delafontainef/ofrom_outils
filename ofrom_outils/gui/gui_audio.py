@@ -168,4 +168,4 @@ class CorAudio(CorOngl[CorAudioData]):
         threading.Thread(
             target=run_mean,
             args=(self.data.files, self.data.m.outdir, self.data.m.mean)
-        )
+        ).start()
