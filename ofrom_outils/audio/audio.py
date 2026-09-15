@@ -37,8 +37,12 @@ import subprocess
 import sys
 import tempfile
 
-from ofrom_outils.common import CORE, FFMPEG, kwarg, iter_all
-from ofrom_outils.common_types import (Callable, Path, cast)
+from ofrom_outils.common import (
+    CORE, FFMPEG, kwarg, iter_files, iter_all
+)
+from ofrom_outils.common_types import (
+    Callable, Path, IterPath, cast
+)
 from ofrom_outils.logs.log import Log
 
 """Constantes globales
@@ -48,7 +52,12 @@ L_EXT       list<str>   formats gérés (extensions de fichier).
 FFP         Path        chemin de ffprobe.
 FFM         Path        chemin de ffmpeg.
 """
-L_EXT = ['.wma', '.mp3', '.wav', '.m4a', '.opus', '.ogg']
+L_EXT = [
+    ".wav", ".mp3", ".m4a", ".ogg", ".flac", ".aac", ".wma",
+    ".aiff", ".aif", ".opus",
+    ".mp4", ".mkv", ".avi", ".mov", ".webm", ".wmv", ".m4v",
+    ".mpeg", ".mpg", ".3gp"
+]
 FFP = os.path.join(FFMPEG, 'ffprobe.exe')
 FFM = os.path.join(FFMPEG, 'ffmpeg.exe')
 
@@ -216,7 +225,7 @@ def audio_level(path: Path) -> tuple[float | None, float | None]:
 
 
 def all_audio_level(
-        path: Path,
+        path: Path | list[Path] | list[IterPath],
         ch_file: str = "",
         ch_all: bool = False,
         verbose: bool = True,
@@ -225,7 +234,9 @@ def all_audio_level(
     """Vérifie le volume audio d'une série de fichiers."""
     l_ch, g_mean = [], 0.
     log = Log() if not log else log
-    for fi, ext, file, path in iter_all(path, l_ext=L_EXT):  # check all files
+    l_paths = iter_all(path, l_ext=L_EXT) if isinstance(path, str) \
+        else iter_files(path, l_ext=L_EXT)
+    for fi, ext, file, path in l_paths:  # check all files
         ch, fi, ext, file, path = check(fi, ext, file, path)  # conditions
         if not ch:
             continue
@@ -270,7 +281,8 @@ def audio_mean(
 
 
 def all_audio_mean(
-        path: Path, npath: Path,
+        path: Path | list[Path] | list[IterPath],
+        npath: Path,
         l_out: None | str | list = None,
         mean: None | float = None,
         rem: bool = True,
@@ -296,13 +308,15 @@ def all_audio_mean(
 
     log = Log() if not log else log
     d_out = {}
+    l_paths = iter_all(path, l_ext=[]) if isinstance(path, str) \
+        else iter_files(path, l_ext=[])
     if isinstance(l_out, str):  # file to list
         l_out = to_list(l_out)
     elif l_out is None:  # get audio levels
         l_out = all_audio_level(path, verbose=False)[0]
     for fi, mes, mean_vol, g_mean, sd in l_out:  # fit l_out in d_out
         d_out[fi] = (mean_vol, g_mean if not mean else mean)
-    for fi, ext, file, path in iter_all(path):  # process
+    for fi, ext, file, path in l_paths:  # process
         ch, fi, ext, file, path = check(fi, ext, file, path)
         if (not ch) or (fi not in d_out):
             continue
@@ -383,7 +397,7 @@ D_F = {"wav": (to_wav, ".wav"),
 
 
 def all_audio_convert(
-        path: Path = "",
+        path: Path | list[Path] | list[IterPath] = "",
         npath: Path = "",
         typ: str = "wav",
         rem: bool = False,
@@ -400,13 +414,15 @@ def all_audio_convert(
     - 'ch_all': (bool) convertir tous les fichiers.
     """
     path = CORE if not path else path
+    l_paths = iter_all(path, l_ext=[]) if isinstance(path, str) \
+        else iter_files(path, l_ext=[])
     npath = path if not npath else npath
+    assert isinstance(npath, str) # il faut un dossier de sortie
     log = Log() if not log else log
     log.log(f"Conversion ({typ}): ", verbose=verbose)
-    for fi, ext, file, path in iter_all(path, l_ext=[]):
-        ch, fi, ext, file, path = check(fi, ext, file, path)  # conditions
-        if not ch:
-            continue
+    for fi, ext, file, path in l_paths:
+        ch, fi, ext, file, path = check(fi, ext, file, path)
+        if not ch: continue
         f, n_ext = D_F[typ]
         log.log(path, mode="w", verbose=verbose)
         f(path, os.path.join(npath, fi + n_ext), rem, ch_all)

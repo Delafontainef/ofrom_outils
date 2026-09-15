@@ -4,12 +4,12 @@ import tkinter as tk
 from abc import abstractmethod, ABC
 from dataclasses import asdict, is_dataclass
 from tkinter import filedialog
+from tkinter import ttk
 from typing import Generic, TypeVar
 
 from ofrom_outils.common_types import Any, Path, Callable
 
-
-T = TypeVar("T")
+T = TypeVar("T", bound=tk.Widget)
 
 
 def update_dc(
@@ -56,7 +56,6 @@ class AbsPath(tk.Frame):
         self.entry.grid(row=0, column=1, sticky="ew")
         self.button.grid(row=0, column=2, sticky="e")
         self.columnconfigure(1, weight=1)
-
 
     def format_path(self, npath: Path) -> Path:
         """Formatte le chemin pour l'affichage."""
@@ -120,9 +119,177 @@ class DirPath(AbsPath):
         )
 
 
+class TreePath(tk.Frame):
+    def __init__(
+            self,
+            parent: tk.Misc,
+            l_ext: list[str] | None = None
+    ):
+        super().__init__(parent)
+        self.l_ext = l_ext if l_ext is not None else []
+        self.tip = None
+        header = tk.Frame(self)
+        self.addbutton = tk.Button(
+            header,
+            text="Ajout...",
+            command=self.add,
+        )
+        self.sel = tk.IntVar(value=0)
+        self.selectall = tk.Checkbutton(
+            header,
+            text="tout",
+            variable=self.sel,
+            offvalue=0,
+            tristatevalue=1,
+            onvalue=2,
+            command=self.select_all,
+        )
+        self.remove = tk.Button(
+            header,
+            text="X",
+            fg="red",
+            command=self.remove_selected
+        )
+        self.tree = ttk.Treeview(
+            self,
+            show="tree headings",
+            selectmode="extended"
+        )
+        self.tree.heading("#0", text="Fichiers")
+
+        header.grid(row=0, column=0, sticky="new")
+        self.addbutton.grid(row=0, column=0, sticky="w")
+        self.selectall.grid(row=0, column=1, sticky="w")
+        self.remove.grid(row=0, column=3, sticky="e")
+        self.tree.grid(row=1, column=0, sticky="nsew")
+        header.columnconfigure(2, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        self.tree.bind("<Insert>", lambda _: self.add())
+        self.tree.bind("<Delete>", lambda _: self.remove_selected())
+        self.tree.bind("<<TreeviewSelect>>", self._selection)
+        self.tree.bind("<Motion>", self._motion)
+
+    def _selection(self, _=None) -> None:
+        """Met à jour la valeur du bouton 'tout sélectionner'."""
+        total = len(self.tree.get_children())
+        selected = len(self.tree.selection())
+        self.sel.set(
+            0 if selected == 0
+            else 2 if selected == total
+            else 1
+        )
+
+    def _show_tooltip(self, x: int, y: int, text: str) -> None:
+        self._hide_tooltip()
+
+        self.tip = tk.Toplevel(self.tree)
+        self.tip.wm_overrideredirect(True)
+        self.tip.wm_geometry(f"+{x}+{y}")
+
+        label = tk.Label(
+            self.tip,
+            text=text,
+            relief="solid",
+            borderwidth=1,
+            padx=4,
+            pady=2,
+        )
+        label.grid(row=0, column=0, sticky="nsew")
+        self.tip.columnconfigure(0, weight=1)
+        self.tip.rowconfigure(0, weight=1)
+
+    def _hide_tooltip(self, _=None):
+        if self.tip:
+            self.tip.destroy()
+            self.tip = None
+
+    def _motion(self, e: tk.Event):
+        iid = self.tree.identify_row(e.y)
+        if not iid:
+            self._hide_tooltip()
+            return
+        path = self.tree.item(iid, "values")[0]
+        self._show_tooltip(e.x_root + 10, e.y_root + 10, path)
+
+    def add(self) -> None:
+        """
+        Ajoute des fichiers à la liste.
+        Utilise 'l_ext' pour trier le résultat par extension de fichier.
+        """
+        ask = tk.filedialog.askopenfilenames()
+        for ask_file in ask:
+            f = os.path.basename(ask_file)
+            fi, ext = os.path.splitext(f)
+            if self.l_ext and ext.lower() not in self.l_ext:
+                continue
+            self.tree.insert("", "end", text=f, values=(ask_file,))
+
+    def select_all(self) -> None:
+        """(Dé)sélectionne tous les fichiers."""
+        if self.sel.get() == 2:
+            self.tree.selection_set(self.tree.get_children())
+        else:
+            self.tree.selection_remove(self.tree.selection())
+            self.sel.set(0)
+
+    def remove_selected(self) -> None:
+        """Retire les fichiers sélectionnés."""
+        self.tree.delete(*self.tree.selection())
+
+    def get(self) -> list[str]:
+        """Renvoie la liste des fichiers."""
+        return [
+            self.tree.item(iid, "values")[0]
+            for iid in self.tree.get_children()
+        ]
+
+    def get_selected(self) -> list[str]:
+        """Renvoie la liste des fichiers sélectionnés."""
+        return [
+            self.tree.item(iid, "values")[0]
+            for iid in self.tree.selection()
+        ]
+
+    def set(self, paths: list[str]) -> None:
+        """Remplace la liste de fichiers."""
+        self.tree.delete(*self.tree.get_children())
+
+        for path in paths:
+            f = os.path.basename(path)
+            fi, ext = os.path.splitext(f)
+            if (
+                    (not os.path.isfile(path)) or
+                    (self.l_ext and ext.lower() not in self.l_ext)
+            ):
+                continue
+            self.tree.insert(
+                "",
+                "end",
+                text=os.path.basename(path),
+                values=(path,),
+            )
+
+        self.tree.selection_remove(self.tree.selection())
+        self._selection()
+
+    def set_selected(self, paths: list[str]) -> None:
+        selected = set(paths)
+        self.tree.selection_remove(self.tree.selection())
+
+        for iid in self.tree.get_children():
+            path = self.tree.item(iid, "values")[0]
+            if path in selected:
+                self.tree.selection_add(iid)
+
+        self._selection()
+
+
 class Options(tk.Frame):
     def __init__(self, parent, title="Options"):
         super().__init__(parent)
+        self.expanded = False
 
         header = tk.Frame(self)
         label = tk.Label(header, text=title)
@@ -144,12 +311,14 @@ class Options(tk.Frame):
         self.content.grid(row=1, column=0, sticky="nsew")
 
     def toggle(self):
-        if self.content.winfo_ismapped():
+        if self.expanded:
             self.content.grid_remove()
             self.button.config(text=" + ")
         else:
             self.content.grid()
             self.button.config(text=" - ")
+
+        self.expanded = not self.expanded
         self.update_idletasks()
 
     def add(self, widget: type[T], *args, **kwargs) -> T:

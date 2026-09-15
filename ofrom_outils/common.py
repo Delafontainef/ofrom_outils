@@ -121,7 +121,6 @@ def set_project_paths(core: Path, meta: Path = "") -> None:
         write_json(dat, path)
 
 
-
 # sys.argv #
 # ---------#
 
@@ -162,6 +161,17 @@ def fix_lext(l_ext: str | list[str] | None = None) -> list[str]:
     return [fix(l_ext)]
 
 
+def _splitpath(file: str, d: str = "") -> tuple[str, str, str, str]:
+    """Renvoie le nom de fichier, l'extension, le nom complet et le chemin."""
+    if not d:
+        path = file
+        file = os.path.basename(file)
+    else:
+        path = os.path.join(d, file)
+    fi, ext = os.path.splitext(file)
+    return fi, ext, file, path
+
+
 def iter_file(
         d: Path,
         l_ext: str | list[str] | None = None
@@ -172,10 +182,24 @@ def iter_file(
     """
     l_ext = fix_lext(l_ext)
     for file in os.listdir(d):
-        fi, ext = os.path.splitext(file)
+        fi, ext, file, path = _splitpath(file, d)
         if l_ext and ext.lower() not in l_ext:
             continue
-        path = os.path.join(d, file)
+        yield fi, ext, file, path
+
+
+def iter_files(
+        files: list[Path] | list[IterPath],
+        l_ext: str | list[str] | None = None
+) -> Iterator[IterPath]:
+    """Itère sur une liste de chemins."""
+    l_ext = fix_lext(l_ext)
+    for path in files:
+        if type(path) == IterPath:
+            yield path
+        fi, ext, file, path = _splitpath(path)
+        if l_ext and ext.lower() not in l_ext:
+            continue
         yield fi, ext, file, path
 
 
@@ -190,10 +214,9 @@ def iter_all(
     l_ext = fix_lext(l_ext)
     for root, dirs, files in os.walk(d):
         for file in files:
-            fi, ext = os.path.splitext(file)
+            fi, ext, file, path = _splitpath(file, root)
             if l_ext and ext.lower() not in l_ext:
                 continue
-            path = os.path.join(root, file)
             yield fi, ext, file, path
 
 

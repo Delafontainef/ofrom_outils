@@ -7,9 +7,8 @@ from typing import Any, Protocol, runtime_checkable
 
 @dataclass
 class CorAudioCData:
-    indir: str = ""
     outdir: str = ""
-    opts: dict[str, list[str | bool]] = field(default_factory=lambda: {
+    ext: dict[str, list[str | bool]] = field(default_factory=lambda: {
         "wav": ["WAV", True],
         "mp3": ["MP3", False],
         "m4a": ["M4A", False]
@@ -18,7 +17,6 @@ class CorAudioCData:
 
 @dataclass
 class CorAudioMData:
-    indir: str = ""
     outdir: str = ""
     mean: float | int | None = None
 
@@ -27,6 +25,7 @@ class CorAudioMData:
 class CorAudioData:
     """Données pour l'interface audio."""
     name: str = "audio"
+    files: list[str] = field(default_factory=list)
     c: CorAudioCData = field(default_factory=CorAudioCData)
     m: CorAudioMData = field(default_factory=CorAudioMData)
 

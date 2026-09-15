@@ -1,12 +1,14 @@
 import tkinter as tk
 import unittest
 from dataclasses import dataclass
+from tkinter import filedialog
 from typing import Any
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, call
 
 from ofrom_outils.gui.gui_ongl import (
     update_dc,
-    AbsPath, FilePath, DirPath, CheckOptions, RadioOptions,
+    AbsPath, FilePath, DirPath, TreePath,
+    Options, CheckOptions, RadioOptions,
     CorOngl
 )
 
@@ -103,6 +105,188 @@ class TestPath(unittest.TestCase):
         widget = DirPath(self.root)
         self.assertIs(widget.setopen, tk.filedialog.askdirectory)
 
+
+class TestTreePath(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.widget = TreePath(self.root)
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_initial_state(self):
+        self.assertEqual(self.widget.sel.get(), 0)
+        self.assertEqual(len(self.widget.tree.get_children()), 0)
+
+    @patch(
+        "tkinter.filedialog.askopenfilenames",
+        return_value=("/tmp/a.txt", "/tmp/b.txt", "/tmp/b.wav")
+    )
+    def test_add(self, _):
+        self.widget.l_ext = [".txt"]
+        self.widget.add()
+        items = self.widget.tree.get_children()
+
+        self.assertEqual(len(items), 2)
+        self.assertEqual(self.widget.tree.item(items[0], "text"), "a.txt")
+        self.assertEqual(
+            self.widget.tree.item(items[0], "values")[0],
+            "/tmp/a.txt"
+        )
+
+    def test_selection_none(self):
+        self.widget.tree.insert("", "end", text="a")
+        self.widget.tree.insert("", "end", text="b")
+
+        self.widget._selection()
+
+        self.assertEqual(self.widget.sel.get(), 0)
+
+    def test_selection_partial(self):
+        a = self.widget.tree.insert("", "end", text="a")
+        self.widget.tree.insert("", "end", text="b")
+
+        self.widget.tree.selection_set(a)
+        self.widget._selection()
+
+        self.assertEqual(self.widget.sel.get(), 1)
+
+    def test_selection_all(self):
+        a = self.widget.tree.insert("", "end", text="a")
+        b = self.widget.tree.insert("", "end", text="b")
+
+        self.widget.tree.selection_set((a, b))
+        self.widget._selection()
+
+        self.assertEqual(self.widget.sel.get(), 2)
+
+    def test_select_all(self):
+        a = self.widget.tree.insert("", "end", text="a")
+        b = self.widget.tree.insert("", "end", text="b")
+
+        self.widget.sel.set(2)
+        self.widget.select_all()
+
+        self.assertEqual(
+            set(self.widget.tree.selection()),
+            {a, b}
+        )
+
+    def test_unselect_all(self):
+        a = self.widget.tree.insert("", "end", text="a")
+        b = self.widget.tree.insert("", "end", text="b")
+
+        self.widget.tree.selection_set((a, b))
+        self.widget.sel.set(0)
+
+        self.widget.select_all()
+
+        self.assertEqual(self.widget.tree.selection(), ())
+
+    def test_remove_selected(self):
+        a = self.widget.tree.insert("", "end", text="a")
+        b = self.widget.tree.insert("", "end", text="b")
+
+        self.widget.tree.selection_set(a)
+        self.widget.remove_selected()
+
+        self.assertEqual(self.widget.tree.get_children(), (b,))
+
+    def test_get(self):
+        self.widget.tree.insert("", "end", text="a", values=("/tmp/a.txt",))
+        self.widget.tree.insert("", "end", text="b", values=("/tmp/b.txt",))
+
+        self.assertEqual(
+            self.widget.get(),
+            ["/tmp/a.txt", "/tmp/b.txt"]
+        )
+
+    def test_get_selected(self):
+        a = self.widget.tree.insert("", "end", text="a", values=("/tmp/a.txt",))
+        self.widget.tree.insert("", "end", text="b", values=("/tmp/b.txt",))
+
+        self.widget.tree.selection_set(a)
+
+        self.assertEqual(
+            self.widget.get_selected(),
+            ["/tmp/a.txt"]
+        )
+
+    @patch("ofrom_outils.gui.gui_ongl.os.path.isfile", return_value=True)
+    def test_set(self, mock_isfile):
+        self.widget.tree.insert("", "end", text="old", values=("/tmp/old.txt",))
+
+        self.widget.set([
+            "/tmp/a.txt",
+            "/tmp/b.txt",
+        ])
+
+        self.assertEqual(
+            self.widget.get(),
+            ["/tmp/a.txt", "/tmp/b.txt"]
+        )
+        mock_isfile.assert_has_calls([
+            call("/tmp/a.txt"),
+            call("/tmp/b.txt"),
+        ])
+        self.assertEqual(self.widget.tree.selection(), ())
+        self.assertEqual(self.widget.sel.get(), 0)
+
+    @patch("ofrom_outils.gui.gui_ongl.os.path.isfile", return_value=True)
+    def test_set_selected(self, mock_isfile):
+        self.widget.set([
+            "/tmp/a.txt",
+            "/tmp/b.txt",
+            "/tmp/c.txt",
+        ])
+
+        self.widget.set_selected([
+            "/tmp/a.txt",
+            "/tmp/c.txt",
+        ])
+
+        self.assertEqual(
+            set(self.widget.get_selected()),
+            {"/tmp/a.txt", "/tmp/c.txt"}
+        )
+        self.assertEqual(self.widget.sel.get(), 1)
+
+
+class TestOptions(unittest.TestCase):
+
+    def setUp(self):
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.widget = Options(self.root)
+        self.widget.grid()
+        self.root.update_idletasks()
+
+    def tearDown(self):
+        self.root.destroy()
+
+    def test_initial_state(self):
+        self.assertFalse(self.widget.expanded)
+
+    def test_toggle_show(self):
+        self.widget.toggle()
+
+        self.assertTrue(self.widget.expanded)
+        self.assertEqual(self.widget.button.cget("text"), " - ")
+
+    def test_toggle_hide(self):
+        self.widget.toggle()
+        self.widget.toggle()
+
+        self.assertFalse(self.widget.expanded)
+        self.assertEqual(self.widget.button.cget("text"), " + ")
+
+    def test_add(self):
+        entry = self.widget.add(tk.Entry)
+
+        self.assertIsInstance(entry, tk.Entry)
+        self.assertIs(entry.master, self.widget.content)
 
 def _buttons(widget, typ: widget_type = tk.Radiobutton):
     return [

@@ -8,8 +8,9 @@ from ofrom_outils import common
 from ofrom_outils.common import (
     read_json, write_json, package_paths, project_paths,
     set_project_paths, kwarg, fix_lext,
-    iter_file, iter_all, get_files, sub_corpus, iter_core, get_core,
-    ensure_outdir, iter_top_tiers, iter_segs, get_top_tiers, get_spk,
+    iter_file, iter_files, iter_all, get_files, sub_corpus, iter_core,
+    get_core, ensure_outdir,
+    iter_top_tiers, iter_segs, get_top_tiers, get_spk,
     set_parent, call_praat, anon_ofrom_plus, ph_ofrom,
     mp_wait, multiprocess, multithread
 )
@@ -159,6 +160,23 @@ class TestIterFile(unittest.TestCase):
              os.path.join("dir", "file2.TextGrid"))
         ])
         assert mock_os.call_count == 1
+
+@patch("ofrom_outils.common.fix_lext")
+class TestIterFiles(unittest.TestCase):
+
+    def test_files(self, mock_lext):
+        mock_lext.return_value = [".textgrid"]
+        l_res = [tpl for tpl in iter_files([
+            os.path.join("dir", "file1.TextGrid"),
+            os.path.join("dir", "file2.TextGrid"),
+            os.path.join("dir", "file3.xml")
+        ])]
+        self.assertEqual(l_res, [
+            ("file1", ".TextGrid", "file1.TextGrid",
+             os.path.join("dir", "file1.TextGrid")),
+            ("file2", ".TextGrid", "file2.TextGrid",
+             os.path.join("dir", "file2.TextGrid"))
+        ])
 
 
 @patch("ofrom_outils.common.fix_lext")
