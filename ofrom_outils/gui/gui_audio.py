@@ -24,11 +24,10 @@ def run_convert(
         npath: Path,
         typ: str
 ) -> None:
-    LOG.clear()
-    threading.Thread(
-        target=all_audio_convert,
-        args=(l_paths, npath, typ, False, False, True, LOG)
-    ).start()
+    LOG.log("", mode="clear")
+    all_audio_convert(l_paths, npath, typ, False, False, True, LOG)
+    LOG.log("", mode="clear")
+    LOG.log("Conversion terminée.")
 
 
 def run_mean(
@@ -40,6 +39,8 @@ def run_mean(
     all_audio_mean(
         l_paths, npath, None, mean, False, True, LOG
     )
+    LOG.clear()
+    LOG.log("Conversion terminée")
 
 
 class CorAudio(CorOngl[CorAudioData]):
@@ -55,6 +56,7 @@ class CorAudio(CorOngl[CorAudioData]):
         LOG.pyw = pyw
         top = ttk.PanedWindow(self, orient="horizontal")
         self.files = TreePath(top, l_ext=L_EXT)
+        self.files.set(self.data.files)
         right_pane = tk.Frame(top)
         convert = tk.Frame(right_pane, bd=1, relief="groove", padx=8, pady=8)
         self.conv_button = tk.Button(
@@ -118,7 +120,9 @@ class CorAudio(CorOngl[CorAudioData]):
         self.columnconfigure(0, weight=1)
         right_pane.columnconfigure(0, weight=1)
         convert.columnconfigure(0, weight=1)
+        conv_opts.columnconfigure(0, weight=1)
         mean.columnconfigure(0, weight=1)
+        mean_opts.columnconfigure(0, weight=1)
 
     def fill_data(self, data: dict[str, Any]) -> CorAudioData:
         dat = CorAudioData()
@@ -154,8 +158,14 @@ class CorAudio(CorOngl[CorAudioData]):
     def convert(self):
         self.get_data()
         typ = next((k for k, (_, v) in self.data.c.ext.items() if v), "")
-        run_convert(self.data.files, self.data.c.outdir, typ)
+        threading.Thread(
+            target=run_convert,
+            args=(self.data.files, self.data.c.outdir, typ)
+        ).start()
 
     def mean(self):
         self.get_data()
-        run_mean(self.data.files, self.data.m.outdir, self.data.m.mean)
+        threading.Thread(
+            target=run_mean,
+            args=(self.data.files, self.data.m.outdir, self.data.m.mean)
+        )

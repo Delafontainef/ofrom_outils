@@ -128,6 +128,8 @@ class TreePath(tk.Frame):
         super().__init__(parent)
         self.l_ext = l_ext if l_ext is not None else []
         self.tip = None
+        self.tip_iid = None
+        self.tip_after = None
         header = tk.Frame(self)
         self.addbutton = tk.Button(
             header,
@@ -155,7 +157,7 @@ class TreePath(tk.Frame):
             show="tree headings",
             selectmode="extended"
         )
-        self.tree.heading("#0", text="Fichiers")
+        self.tree.heading("#0", text="Fichiers", anchor="w")
 
         header.grid(row=0, column=0, sticky="new")
         self.addbutton.grid(row=0, column=0, sticky="w")
@@ -170,6 +172,7 @@ class TreePath(tk.Frame):
         self.tree.bind("<Delete>", lambda _: self.remove_selected())
         self.tree.bind("<<TreeviewSelect>>", self._selection)
         self.tree.bind("<Motion>", self._motion)
+        self.tree.bind("<Leave>", self._hide_tooltip)
 
     def _selection(self, _=None) -> None:
         """Met à jour la valeur du bouton 'tout sélectionner'."""
@@ -187,6 +190,7 @@ class TreePath(tk.Frame):
         self.tip = tk.Toplevel(self.tree)
         self.tip.wm_overrideredirect(True)
         self.tip.wm_geometry(f"+{x}+{y}")
+        self.tip.wm_attributes("-topmost", True)
 
         label = tk.Label(
             self.tip,
@@ -201,17 +205,33 @@ class TreePath(tk.Frame):
         self.tip.rowconfigure(0, weight=1)
 
     def _hide_tooltip(self, _=None):
+        if self.tip_after:
+            self.after_cancel(self.tip_after)
+        self.tip_after = None
+
         if self.tip:
             self.tip.destroy()
             self.tip = None
 
+        self.tip_iid = None
+
     def _motion(self, e: tk.Event):
         iid = self.tree.identify_row(e.y)
-        if not iid:
-            self._hide_tooltip()
+        if iid == self.tip_iid:
             return
+        self._hide_tooltip()
+        if not iid:
+            return
+
+        self.tip_iid = iid
         path = self.tree.item(iid, "values")[0]
-        self._show_tooltip(e.x_root + 10, e.y_root + 10, path)
+        self.tip_after = self.after(
+            100,
+            self._show_tooltip,
+            e.x_root + 15,
+            e.y_root + 15,
+            path,
+            )
 
     def add(self) -> None:
         """
@@ -291,24 +311,32 @@ class Options(tk.Frame):
         super().__init__(parent)
         self.expanded = False
 
-        header = tk.Frame(self)
+        header = tk.Frame(
+            self,
+            relief="groove",
+            bd=1,
+            padx=8,
+        )
         label = tk.Label(header, text=title)
         self.button = tk.Button(
             header,
-            text=" - ",
+            text=" + ",
             command=self.toggle,
         )
         self.content = tk.Frame(
             self,
-            borderwidth=1,
-            relief=tk.GROOVE,
+            relief="groove",
+            bd=1,
+            padx=8,
+            pady=8
         )
 
-        self.columnconfigure(0, weight=1)
         header.grid(row=0, column=0, sticky="ew")
         label.grid(row=0, column=0)
-        self.button.grid(row=0, column=1)
+        self.button.grid(row=0, column=1, sticky="e")
         self.content.grid(row=1, column=0, sticky="nsew")
+        self.content.grid_remove()
+        header.columnconfigure(1, weight=1)
 
     def toggle(self):
         if self.expanded:

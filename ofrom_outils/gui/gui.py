@@ -134,11 +134,11 @@ class CorConsole(tk.Frame):
                 'clear' pour vider la 'console'.
         """
         if mode in ["a", "w"]:  # écrit
-            self.write(txt, mode)
+            self.after(0, self.write, txt, mode)
         elif mode == "mark":  # crée/déplace le marqueur
-            self.mark()
+            self.after(0, self.mark)
         elif mode == "clear":  # vide la 'console'
-            self.clear()
+            self.after(0, self.clear)
 
 
 class CorMain(tk.Tk):
@@ -335,13 +335,3 @@ class CorMain(tk.Tk):
             self.load(self.data.save_file)
         else:
             self.data.save_file = ""
-
-
-if __name__ == "__main__":
-    """Génère l'interface quand on double-clique."""
-    import sys
-
-    window = CorMain()
-    window.mainloop()
-    sys.stdout.close()
-    sys.exit()
