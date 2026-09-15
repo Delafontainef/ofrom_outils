@@ -36,6 +36,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import shutil
 
 from ofrom_outils.common import (
     CORE, FFMPEG, kwarg, iter_files, iter_all
@@ -416,16 +417,18 @@ def all_audio_convert(
     path = CORE if not path else path
     l_paths = iter_all(path, l_ext=[]) if isinstance(path, str) \
         else iter_files(path, l_ext=[])
-    npath = path if not npath else npath
-    assert isinstance(npath, str) # il faut un dossier de sortie
+    out_tmp: str = os.path.dirname(npath) if os.path.isfile(npath) else npath
+    out_tmp = path if not out_tmp else out_tmp
+    assert isinstance(out_tmp, str) # il faut un dossier de sortie
     log = Log() if not log else log
     log.log(f"Conversion ({typ}): ", verbose=verbose)
     for fi, ext, file, path in l_paths:
         ch, fi, ext, file, path = check(fi, ext, file, path)
-        if not ch: continue
+        if not ch: 
+            continue
         f, n_ext = D_F[typ]
         log.log(path, mode="w", verbose=verbose)
-        f(path, os.path.join(npath, fi + n_ext), rem, ch_all)
+        f(path, os.path.join(out_tmp, fi + n_ext), rem, ch_all)
 
 
 def args(argv: list[str]) -> tuple[Callable | None, dict[str, str | bool]]:

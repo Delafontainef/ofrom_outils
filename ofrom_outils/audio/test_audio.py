@@ -321,6 +321,7 @@ class TestToM4a(unittest.TestCase):
         args = args[3][-6:]
         self.assertEqual(args, ['my_file.ogg', '-vn', '-ac', 1, '-ar', 44100])
 
+
 @patch("ofrom_outils.audio.audio.D_F")
 @patch("ofrom_outils.audio.audio.check")
 @patch("ofrom_outils.audio.audio.iter_all")
@@ -350,13 +351,15 @@ class TestAllAudioConvert(unittest.TestCase):
 class TestArgs(unittest.TestCase):
 
     def test_args(self):
-        func, d_args = args(["buff", "convert", "a_path", "another_path", "m4a"])
+        func, d_args = args(
+            ["buff", "convert", "a_path", "another_path", "m4a"])
         self.assertEqual(func, all_audio_convert)
         self.assertEqual(d_args, {
             'path': "a_path", 'npath': "another_path",
             'typ': 'm4a',
             'rem': False, 'ch_all': False
         })
+
 
 if __name__ == "__main__":
     unittest.main()
